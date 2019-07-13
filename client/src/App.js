@@ -1,26 +1,45 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      socket: null,
+      connected: false
+    };
+  }
+
+  componentDidMount() {
+    const socket = new WebSocket('ws://localhost:8000');
+    this.setState({ socket });
+    socket.onopen = _ => {
+      console.log('Connected to breadracer.com');
+      this.setState({ connected: true });
+    };
+    socket.onclose = _ => {
+      console.log('Disconnected to breadracer.com');
+    };
+    socket.onmessage = event => {
+      console.log(`Roundtrip time: ${Date.now() - event.data} ms`);
+    };
+  }
+
+  handleSubmit = () => {
+    if (this.state.connected)
+      this.state.socket.send(Date.now());
+    else
+      console.log('Not connected yet');
+  }
+
+  render() {
+    return (
+      <div>
+        <h1>Welcome to the homepage!</h1>
+        <button onClick={this.handleSubmit}>Sumbit message!</button>
+      </div>
+    )
+  }
 }
 
 export default App;
