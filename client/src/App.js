@@ -26,7 +26,7 @@ class App extends React.Component {
     // If no cookie, go to Login page
 
     const socket = new WebSocket(
-      `ws://breadracer.com:8000/?access_token=${this.state.token}`);
+      `ws://localhost:8000/?access_token=${this.state.token}`);
     
     this.setState({ socket });
     socket.onopen = _ => {
@@ -53,7 +53,7 @@ class App extends React.Component {
   handleSubmitLogin = (e) => {
       e.preventDefault();
 
-      axios.post('http://breadracer.com:8000/api/login', {
+      axios.post('http://localhost:8000/api/login', {
         headers: { 
           crossDomain: true,
           withCredentials: true,

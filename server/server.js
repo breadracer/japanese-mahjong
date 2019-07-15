@@ -1,14 +1,16 @@
+#!/usr/bin/node
+
 const http = require('http');
 const url = require('url');
 const WebSocket = require('ws');
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, GET',
+  'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
   'Access-Control-Allow-Headers': '*',
   'Access-Control-Max-Age': 2592000, // 30 days
   'Access-Control-Allow-Credentials': true,
-  'Content-Type': 'application/json'
+  'Content-Type': 'text/plain'
 };
 
 let users = [
@@ -25,7 +27,12 @@ let handleRegister = (req, res) => {
 }
 
 let handleLogin = (req, res) => {
-  if (req.method === 'POST') {
+  console.log(req.method)
+  if (req.method === 'OPTIONS') {
+    console.log('OPTIONS success');
+    res.writeHead(200, 'OK', headers);
+    res.end();
+  } else if (req.method === 'POST') {
     let requestData = '';
     req.on('data', chunk => { requestData += chunk.toString(); });
     req.on('end', () => {
@@ -37,7 +44,8 @@ let handleLogin = (req, res) => {
           'Set-Cookie': 'access_token=abc',
           ...headers
         });
-        res.end(JSON.stringify({as: 'as'}));
+        res.write(JSON.stringify({as: 'as'}));
+        res.end();
       }
     })
   }
