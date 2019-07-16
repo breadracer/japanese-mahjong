@@ -5,12 +5,12 @@ const url = require('url');
 const WebSocket = require('ws');
 
 const headers = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'http://breadracer.com',
   'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
-  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Allow-Headers': 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Set-Cookie, Cross-Domain',
   'Access-Control-Max-Age': 2592000, // 30 days
   'Access-Control-Allow-Credentials': true,
-  'Content-Type': 'text/plain'
+  'Content-Type': 'application/json'
 };
 
 let users = [
@@ -41,7 +41,7 @@ let handleLogin = (req, res) => {
       // TODO: Verify user information
       if (true) {
         res.writeHead(200, 'OK', {
-          'Set-Cookie': 'access_token=abc',
+          'Set-Cookie': 'access_token=abc; Path=/',
           ...headers
         });
         res.write(JSON.stringify({as: 'as'}));

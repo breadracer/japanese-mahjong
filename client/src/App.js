@@ -54,13 +54,14 @@ class App extends React.Component {
       e.preventDefault();
 
       axios.post('http://breadracer.com:8000/api/login', {
-        headers: { 
-          crossDomain: true,
-          withCredentials: true,
-          Content_Type: 'application/json'
-        },
         username: this.state.username,
         password: this.state.password
+      }, {
+        headers: {
+          'Cross-Domain': true,
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
       }).then(res => {
         console.log(res.data);
       }).catch(err => {
