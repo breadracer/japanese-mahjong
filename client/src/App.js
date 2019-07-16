@@ -34,16 +34,16 @@ class App extends React.Component {
   webSocketTryConnect = _ => {
     if (!this.state.socket) {
       const socket = new WebSocket(
-        `ws://localhost:8000/?access_token=${
+        `ws://breadracer.com:8000/?access_token=${
         cookie.parse(document.cookie).access_token}`);
   
       this.setState({ socket });
       socket.onopen = _ => {
-        console.log('Connected to localhost');
+        console.log('Connected to breadracer.com');
         this.setState({ connected: true });
       };
       socket.onclose = _ => {
-        console.log('Cannot connect or disconnected to localhost');
+        console.log('Cannot connect or disconnected to breadracer.com');
         this.setState({ connected: false, socket: null });
       };
       socket.onmessage = event => {
@@ -65,7 +65,7 @@ class App extends React.Component {
   handleRegister = e => {
     e.preventDefault();
 
-    axios.post('http://localhost:8000/api/register', {
+    axios.post('http://breadracer.com:8000/api/register', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -89,7 +89,7 @@ class App extends React.Component {
   handleLogin = e => {
     e.preventDefault();
 
-    axios.post('http://localhost:8000/api/login', {
+    axios.post('http://breadracer.com:8000/api/login', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -113,7 +113,7 @@ class App extends React.Component {
   }
 
   handleLogout = _ => {
-    // axios.post('http://localhost:8000/api/logout', {
+    // axios.post('http://breadracer.com:8000/api/logout', {
     //   username: this.state.loggedUser,
     // }, {
     //     headers: {
@@ -159,7 +159,7 @@ class App extends React.Component {
         <button onClick={this.handleTestSpeed}>Get ws roundtrip time</button>
         <button onClick={this.webSocketTryConnect}>Try reconnecting</button>
 
-        {/* <form action='http://localhost/register' method='POST'>
+        {/* <form action='http://breadracer.com/register' method='POST'>
           <input type='text' title='username' name='username' />
           <input type='text' title='password' name='password' />
           <button onClick={this.handleSubmit.bind(this, 'register')}>
