@@ -9,7 +9,9 @@
   "author": "breadracer",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^3.0.6",
     "http": "0.0.0",
+    "jsonwebtoken": "^8.5.1",
     "ws": "^7.1.0"
   }
 }
