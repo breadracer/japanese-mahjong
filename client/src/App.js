@@ -36,7 +36,7 @@ class App extends React.Component {
       let socket;
       try {
         socket = new WebSocket(
-          `ws://localhost:8000/?access_token=${
+          `ws://breadracer.com:8000/?access_token=${
           cookie.parse(document.cookie).access_token
           }&session_user=${cookie.parse(document.cookie).session_user}`);
       } catch (err) {
@@ -45,11 +45,11 @@ class App extends React.Component {
       }
 
       socket.onopen = _ => {
-        console.log('Connected to localhost');
+        console.log('Connected to breadracer.com');
         this.setState({ connected: true, socket });
       };
       socket.onclose = _ => {
-        console.log('Cannot connect or disconnected to localhost');
+        console.log('Cannot connect or disconnected to breadracer.com');
         this.setState({ connected: false, socket: null, loggedUser: null });
       };
       socket.onmessage = event => {
@@ -71,7 +71,7 @@ class App extends React.Component {
   handleRegister = e => {
     e.preventDefault();
 
-    axios.post('http://localhost:8000/api/register', {
+    axios.post('http://breadracer.com:8000/api/register', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -95,7 +95,7 @@ class App extends React.Component {
   handleLogin = e => {
     e.preventDefault();
 
-    axios.post('http://localhost:8000/api/login', {
+    axios.post('http://breadracer.com:8000/api/login', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -119,7 +119,7 @@ class App extends React.Component {
   }
 
   handleLogout = _ => {
-    axios.post('http://localhost:8000/api/logout', {
+    axios.post('http://breadracer.com:8000/api/logout', {
       username: this.state.loggedUser,
     }, {
         headers: {

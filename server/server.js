@@ -27,7 +27,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 const headers = [
-  ['Access-Control-Allow-Origin', 'http://localhost:3000'],
+  ['Access-Control-Allow-Origin', 'http://breadracer.com'],
   ['Access-Control-Allow-Methods', 'OPTIONS, POST'],
   ['Access-Control-Allow-Headers',
     'X-Requested-With, X-HTTP-Method-Override, Content-Type, ' +
