@@ -18,12 +18,12 @@ class App extends React.Component {
       username: '',
       password: '',
       // TODO: More on this later
-      // loggedUser: null
+      loggedUser: cookie.parse(document.cookie).session_user || null
     };
   }
 
   componentDidMount() {
-    
+
     // Try connect with current cookie sent in request param
     // If auth success, connect to ws server
     // If no cookie, go to Login page
@@ -33,21 +33,27 @@ class App extends React.Component {
 
   webSocketTryConnect = _ => {
     if (!this.state.socket) {
-      const socket = new WebSocket(
-        `ws://breadracer.com:8000/?access_token=${
-        cookie.parse(document.cookie).access_token}`);
-  
-      this.setState({ socket });
+      let socket;
+      try {
+        socket = new WebSocket(
+          `ws://localhost:8000/?access_token=${
+          cookie.parse(document.cookie).access_token
+          }&session_user=${cookie.parse(document.cookie).session_user}`);
+      } catch (err) {
+        console.log(err);
+        return;
+      }
+
       socket.onopen = _ => {
-        console.log('Connected to breadracer.com');
-        this.setState({ connected: true });
+        console.log('Connected to localhost');
+        this.setState({ connected: true, socket });
       };
       socket.onclose = _ => {
-        console.log('Cannot connect or disconnected to breadracer.com');
-        this.setState({ connected: false, socket: null });
+        console.log('Cannot connect or disconnected to localhost');
+        this.setState({ connected: false, socket: null, loggedUser: null });
       };
       socket.onmessage = event => {
-        console.log(`Roundtrip time: ${Date.now() - event.data} ms`);
+        console.log(event.data);
       };
     } else {
       console.log('Already connected');
@@ -65,7 +71,7 @@ class App extends React.Component {
   handleRegister = e => {
     e.preventDefault();
 
-    axios.post('http://breadracer.com:8000/api/register', {
+    axios.post('http://localhost:8000/api/register', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -83,13 +89,13 @@ class App extends React.Component {
     this.setState({
       username: '',
       password: ''
-    })
+    });
   }
 
   handleLogin = e => {
     e.preventDefault();
 
-    axios.post('http://breadracer.com:8000/api/login', {
+    axios.post('http://localhost:8000/api/login', {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -100,7 +106,7 @@ class App extends React.Component {
         withCredentials: true
       }).then(res => {
         console.log(res.data);
-        this.setState({ loggedUser: res.data.user });
+        this.setState({ loggedUser: res.data.username });
         this.webSocketTryConnect(null);
       }).catch(err => {
         console.log(err);
@@ -113,37 +119,53 @@ class App extends React.Component {
   }
 
   handleLogout = _ => {
-    // axios.post('http://breadracer.com:8000/api/logout', {
-    //   username: this.state.loggedUser,
-    // }, {
-    //     headers: {
-    //       'Cross-Domain': true,
-    //       'Content-Type': 'application/json'
-    //     },
-    //     withCredentials: true
-    //   }).then(res => {
-    //     console.log(res.data);
-    //     this.state.socket.close();
-    //     document.cookie = '';
-    //     this.setState({ loggedUser: null, socket: null });
-    //   }).catch(err => {
-    //     console.log(err);
-    //   });
+    axios.post('http://localhost:8000/api/logout', {
+      username: this.state.loggedUser,
+    }, {
+        headers: {
+          'Cross-Domain': true,
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
+      }).then(res => {
+        console.log(res.data);
+        this.state.socket.close();
+        document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 ' +
+          '00:00:01 GMT; path=/'
+        document.cookie = 'session_user=; expires=Thu, 01 Jan ' +
+          '1970 00:00:01 GMT; path=/';
+        this.setState({ loggedUser: null, socket: null, token: '' });
+      }).catch(err => {
+        console.log(err);
+      });
   }
 
   onChange = e => { this.setState({ [e.target.name]: e.target.value }); }
 
   render() {
-    const title = this.state.connected ? (
-      <h1>You are connected!</h1>) : (
-        <h1>Please try connect first!</h1>
-      );
+    const title = this.state.connected ?
+      <h1>You are connected!</h1> :
+      <h1>Please try connect first!</h1>;
 
-    // const userWelcome = this.state.loggedUser ? (
-    //   <h1>Hi, {this.state.loggedUser}!</h1>
-    // ) : (
-    //   <h1>You are not logged in</h1>
-    // )
+    const userWelcome = this.state.loggedUser ?
+      <h3>Hi, {this.state.loggedUser}!</h3> :
+      <h3>You are not logged in</h3>;
+
+    const mainPage = this.state.connected ?
+      <div>
+        <button onClick={this.handleLogout}>Sign out</button>
+        <button onClick={this.handleTestSpeed}>Get ws time</button>
+      </div> :
+      <form>
+        <input type='text' title='username' onChange={this.onChange}
+          name='username' value={this.state.username} />
+        <input type='password' title='password' onChange={this.onChange}
+          name='password' value={this.state.password} />
+        <button onClick={this.handleLogin}>Sign in</button>
+        <button onClick={this.handleRegister}>Sign up</button>
+      </form>
+
+
 
     return (
       // <BrowserRouter>
@@ -156,30 +178,9 @@ class App extends React.Component {
 
       <div>
         {title}
-        <button onClick={this.handleTestSpeed}>Get ws roundtrip time</button>
+        {userWelcome}
+        {mainPage}
         <button onClick={this.webSocketTryConnect}>Try reconnecting</button>
-
-        {/* <form action='http://breadracer.com/register' method='POST'>
-          <input type='text' title='username' name='username' />
-          <input type='text' title='password' name='password' />
-          <button onClick={this.handleSubmit.bind(this, 'register')}>
-            Sign me up
-          </button>
-        </form> */}
-
-        <form>
-          <input type='text' title='username' onChange={this.onChange}
-            name='username' value={this.state.username} />
-          <input type='password' title='password' onChange={this.onChange}
-            name='password' value={this.state.password} />
-          <button onClick={this.handleLogin}>Sign in</button>
-          <button onClick={this.handleRegister}>Sign up</button>
-        </form>
-
-        <button onClick={this.handleLogout}>Sign out</button>
-
-
-
       </div>
     )
   }

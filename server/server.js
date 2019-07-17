@@ -1,57 +1,54 @@
 #!/usr/bin/node
 
+// Connection/Session lifecycle:
+
+// User not connected logs in (on success)
+// -> server signs and sends jwt based on username via Set-Cookie header
+// -> client sets cookie = jwt, set state to logged in, then tries to 
+//    connect with that cookie
+
+// User connects with cookie (on success)
+// -> server records the <username: websocket> pair
+// -> client set state to connected, save the socket and username
+
+// TODO: Ping and Pong to check user connection
+// Logged in user disconnected
+
+// User connected logs out
+// -> server close the socket resp w/ username, delete the session record
+// -> client set state to disconnected and logged out (passively via 'on 
+//    close'), remove the socket and username, set the stored cookie to
+//    expired
+
 const http = require('http');
 const url = require('url');
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-const headers = {
-  'Access-Control-Allow-Origin': 'http://breadracer.com',
-  'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
-  'Access-Control-Allow-Headers':
+const headers = [
+  ['Access-Control-Allow-Origin', 'http://localhost:3000'],
+  ['Access-Control-Allow-Methods', 'OPTIONS, POST'],
+  ['Access-Control-Allow-Headers',
     'X-Requested-With, X-HTTP-Method-Override, Content-Type, ' +
-    'Accept, Set-Cookie, Cross-Domain',
-  'Access-Control-Max-Age': 86400, // 24 hours
-  'Access-Control-Allow-Credentials': true,
-  'Content-Type': 'application/json'
-};
+    'Accept, Set-Cookie, Cross-Domain'],
+  ['Access-Control-Max-Age', 86400], // 24 hours
+  ['Access-Control-Allow-Credentials', true],
+  ['Content-Type', 'application/json']
+];
 
 // TODO: Set this to some environment variable
 const SECRET_KEY = 'SECRET_KEY';
 
-let users = [];
+let users = {};
 
-// TODO: Create a map between these two
-let sessions = [];
-let connections = [];
-
-// let handleRegister = ([req, res]) => {
-//   console.log('request to /api/register');
-
-//   if ()
-
-// }
-
-// let handleLogin = ([req, res]) => {
-//   // TODO: Verify user information
-//   if (true) {
-//     res.writeHead(200, 'OK', {
-//       'Set-Cookie': 'access_token=abc; Path=/',
-//       ...headers
-//     });
-//     res.write(JSON.stringify({ as: 'as' }));
-//     res.end();
-//   }
-//   console.log('request to /api/login');
-// }
-
+let sessions = {};
 
 function requestListener(req, res) {
   let query = url.parse(req.url, true);
 
   if (req.method === 'OPTIONS') {
-    console.log('OPTIONS success');
+    // For CORS
     res.writeHead(200, headers);
     res.end();
   } else if (req.method == 'POST') {
@@ -60,44 +57,56 @@ function requestListener(req, res) {
     req.on('data', chunk => { requestData += chunk.toString(); });
     req.on('end', () => {
       let requestBody = JSON.parse(requestData);
-      console.log(requestBody);
+      console.log('POST request', requestBody);
       switch (query.pathname) {
         case '/api/register': {
           // Check if the user already exists
           // TODO: Store users in the database rather than in RAM
-          if (users.some(e => e.username === requestBody.username)) {
+          if (users.hasOwnProperty(requestBody.username)) {
             res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({ message: 'User already registered' }));
           } else {
+            // Store the hashed password
             let hash = bcrypt.hashSync(requestBody.password, 10);
-            users.push({ username: requestBody.username, hash });
-            console.log(users);
+            users[requestBody.username] = hash;
+            console.log(`Registered ${requestBody.username}`);
             res.writeHead(201, 'Created', headers);
             res.end(JSON.stringify({ message: 'Successfully signed up' }));
           }
           break;
         }
         case '/api/login': {
-          let user = users.find(e => e.username === requestBody.username);
-          if (user && bcrypt.compareSync(requestBody.password, user.hash)) {
-            // Generate JWT token
-            let token = jwt.sign({
-              username: user.username
-            }, SECRET_KEY, {
-                expiresIn: '24h'
-              });
-            console.log(token);
-            res.writeHead(200, 'OK', {
-              'Set-Cookie': `access_token=${token}; Path=/`,
-              ...headers
-            });
+          let { username, password } = requestBody;
+
+          // Check if already logged in
+          if (sessions.hasOwnProperty(username)) {
+            res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({
-              message: 'Successfully signed in',
-              user: user.username
+              message: 'Already logged in somewhere else'
             }));
-            // sessions.push(user.username);
-            // console.log(sessions);
+          }
+
+          // Verify user information
+          if (users.hasOwnProperty(username) &&
+            bcrypt.compareSync(password, users[username])) {
+
+            // Generate jwt token
+            let token = jwt.sign(
+              { username }, SECRET_KEY, { expiresIn: '24h' });
+
+            // Send back token in Set-Cookie header
+            res.writeHead(200, 'OK', [
+              ['Set-Cookie', `access_token=${token}; Path=/`],
+              ['Set-Cookie', `session_user=${username}; Path=/`],
+              ...headers
+            ]);
+            res.end(JSON.stringify({
+              username,
+              message: `Successfully logged in: ${username}`
+            }));
           } else {
+
+            // 401 if verification failed
             res.writeHead(401, 'Unauthorized', headers);
             res.end(JSON.stringify({
               message: 'Incorrect username or password'
@@ -105,59 +114,89 @@ function requestListener(req, res) {
           }
           break;
         }
-        // case '/api/logout': {
-        //   let index = sessions.indexOf(requestBody.username);
-        //   if (index > -1)
-        //     sessions.splice(index, 1);
-        //   res.writeHead(200, 'OK', headers);
-        //   res.end(JSON.stringify({
-        //     message: `Bye ${requestBody.username}!`,
-        //   }));
-        //   break;
-        // }
-        default: console.log('invalid request path');
+        case '/api/logout': {
+          // Check if logged in
+          if (!sessions.hasOwnProperty(requestBody.username)) {
+            res.writeHead(400, 'Bad Request', headers);
+            res.end(JSON.stringify({
+              message: 'Not logged in'
+            }));
+          }
+          res.writeHead(200, 'OK', headers);
+          res.end(JSON.stringify({
+            message: `Bye, ${requestBody.username}!`,
+          }));
+          break;
+        }
+        default: console.log('Invalid request path');
       }
     });
   }
-
-
 }
 
 const server = http.createServer(requestListener);
 
-let verifyClient = (info, callback) => {
-  let token = url.parse(info.req.url, true).query.access_token || '';
-  let decoded = {};
-  try {
-    decoded = jwt.verify(token, SECRET_KEY);
-  } catch (err) {
-    console.log(err);
-    callback(false, 401, 'Unauthorized');
+function verifyClient(info, callback) {
+  let { access_token, session_user } = url.parse(info.req.url, true).query;
+  let flag = false;
+
+  // Check if the same user already connected somewhere else
+  if (sessions.hasOwnProperty(session_user)) {
+    console.log(`User ${session_user} already logged in, ` +
+      'closing connection...');
+    callback(false, 400, 'Bad Request');
+
+    // Check if such user exists
+  } else if (!users.hasOwnProperty(session_user)) {
+    console.log(`Invalid username: ${session_user}, closing connection...`);
+    callback(false, 400, 'Bad Request');
+  } else {
+    // Verify client token in param query
+    let decode = {};
+    try {
+      decode = jwt.verify(access_token, SECRET_KEY);
+    } catch (err) {
+      console.log('Invalid token');
+      callback(false, 401, 'Unauthorized');
+    }
+
+    // Check if the correct username is decoded
+    if (decode.username === session_user) {
+      flag = true;
+      callback(true);
+    } else {
+      console.log('Inconsistent request username');
+      callback(false, 401, 'Unauthorized');
+    }
   }
-  callback(true);
+
+  if (flag) console.log(`Passed verifyClient: ${session_user}`);
 }
 
 const webSocketServer = new WebSocket.Server({ server, verifyClient });
-webSocketServer.on('connection', socket => {
-  // socket.on('open', () => {
-  //   console.log(`A new connection is established`);
-  //   connections.push(socket);
-  //   console.log(connections);
-  //   socket.send(`Hello, client #${connections.length}`);
-  // })
-  // socket.on('close', () => {
-  //   console.log(`A connection is closed`);
-  //   let index = connections.indexOf(socket);
-  //   if (index > -1)
-  //     connections.splice(index, 1);
-  //   console.log(connections);
-  // })
+
+webSocketServer.on('connection', (socket, req) => {
+  let username = url.parse(req.url, true).query.session_user;
+
+  // Add session record
+  console.log(`A new connection is established`);
+  sessions[username] = socket;
+
+  socket.send(`Hello, ${username}`);
+  console.log(Object.keys(sessions));
+
+  socket.on('close', (_, reason) => {
+    // Remove session record
+    sessions[username] = null;
+    delete sessions[username];
+    console.log(`A connection is closed`);
+    console.log(Object.keys(sessions));
+  });
+
   socket.on('message', msg => {
     console.log('received: %s', msg);
     socket.send(msg);
   });
-
 });
 
 server.listen(8000);
-
