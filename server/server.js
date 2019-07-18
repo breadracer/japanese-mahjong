@@ -32,7 +32,7 @@ const HOST_NAME = 'breadracer.com';
 
 const headers = [
   ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
-  ['Access-Control-Allow-Methods', 'OPTIONS, POST'],
+  ['Access-Control-Allow-Methods', 'OPTIONS, POST, GET'],
   ['Access-Control-Allow-Headers',
     'X-Requested-With, X-HTTP-Method-Override, Content-Type, ' +
     'Accept, Set-Cookie, Cross-Domain'],
