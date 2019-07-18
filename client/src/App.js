@@ -8,17 +8,21 @@ import './App.css';
 // import Register from './Register'
 // import Home from './Home'
 
+// TODO: Set these to some environment variable
+const HOST_NAME = 'breadracer.com';
+
 class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      socket: null,
-      connected: false,
-      token: cookie.parse(document.cookie).access_token || '',
       username: '',
       password: '',
-      // TODO: More on this later
-      loggedUser: cookie.parse(document.cookie).session_user || null
+      socket: null,
+      connected: false,
+      loggedUser: cookie.parse(document.cookie).session_user || null,
+      token: cookie.parse(document.cookie).access_token || '',
+      chatRoom: [],
+      chatInput: ''
     };
   }
 
@@ -36,7 +40,7 @@ class App extends React.Component {
       let socket;
       try {
         socket = new WebSocket(
-          `ws://breadracer.com:8000/?access_token=${
+          `ws://${HOST_NAME}:8000/?access_token=${
           cookie.parse(document.cookie).access_token
           }&session_user=${cookie.parse(document.cookie).session_user}`);
       } catch (err) {
@@ -45,15 +49,17 @@ class App extends React.Component {
       }
 
       socket.onopen = _ => {
-        console.log('Connected to breadracer.com');
+        console.log(`Connected to ${HOST_NAME}`);
         this.setState({ connected: true, socket });
       };
       socket.onclose = _ => {
-        console.log('Cannot connect or disconnected to breadracer.com');
+        console.log(`Cannot connect or disconnected to ${HOST_NAME}`);
         this.setState({ connected: false, socket: null, loggedUser: null });
       };
       socket.onmessage = event => {
-        console.log(event.data);
+        this.setState((prevState, _) => ({
+          chatRoom: [...prevState.chatRoom, event.data]
+        }));
       };
     } else {
       console.log('Already connected');
@@ -71,7 +77,7 @@ class App extends React.Component {
   handleRegister = e => {
     e.preventDefault();
 
-    axios.post('http://breadracer.com:8000/api/register', {
+    axios.post(`http://${HOST_NAME}:8000/api/register`, {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -95,7 +101,7 @@ class App extends React.Component {
   handleLogin = e => {
     e.preventDefault();
 
-    axios.post('http://breadracer.com:8000/api/login', {
+    axios.post(`http://${HOST_NAME}:8000/api/login`, {
       username: this.state.username,
       password: this.state.password
     }, {
@@ -119,7 +125,7 @@ class App extends React.Component {
   }
 
   handleLogout = _ => {
-    axios.post('http://breadracer.com:8000/api/logout', {
+    axios.post(`http://${HOST_NAME}:8000/api/logout`, {
       username: this.state.loggedUser,
     }, {
         headers: {
@@ -134,10 +140,26 @@ class App extends React.Component {
           '00:00:01 GMT; path=/'
         document.cookie = 'session_user=; expires=Thu, 01 Jan ' +
           '1970 00:00:01 GMT; path=/';
-        this.setState({ loggedUser: null, socket: null, token: '' });
+        this.setState({
+          loggedUser: null,
+          socket: null,
+          token: '',
+          chatRoom: [],
+          chatInput: ''
+         });
       }).catch(err => {
         console.log(err);
       });
+  }
+
+  handleSendMessage = e => {
+    e.preventDefault();
+    if (this.state.connected) {
+      this.state.socket.send(this.state.chatInput);
+      this.setState({ chatInput: '' });
+    } else {
+      console.log('Not connected yet');
+    }
   }
 
   onChange = e => { this.setState({ [e.target.name]: e.target.value }); }
@@ -151,10 +173,22 @@ class App extends React.Component {
       <h3>Hi, {this.state.loggedUser}!</h3> :
       <h3>You are not logged in</h3>;
 
+    const messageList = this.state.chatRoom.map((e, i) => <p id={i}>{e}</p>);
+
     const mainPage = this.state.connected ?
       <div>
-        <button onClick={this.handleLogout}>Sign out</button>
-        <button onClick={this.handleTestSpeed}>Get ws time</button>
+        <div>
+          <button onClick={this.handleLogout}>Log out</button>
+          <button onClick={this.handleTestSpeed}>Get ws time</button>
+        </div>
+        <div>
+          {messageList}
+        </div>
+        <form>
+          <input type='text' title='chatInput' onChange={this.onChange}
+            name='chatInput' value={this.state.chatInput} />
+          <button onClick={this.handleSendMessage}>Send</button>
+        </form>
       </div> :
       <form>
         <input type='text' title='username' onChange={this.onChange}

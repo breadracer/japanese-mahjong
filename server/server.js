@@ -26,8 +26,12 @@ const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
+// TODO: Set these to some environment variable
+const SECRET_KEY = 'SECRET_KEY';
+const HOST_NAME = 'breadracer.com';
+
 const headers = [
-  ['Access-Control-Allow-Origin', 'http://breadracer.com'],
+  ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
   ['Access-Control-Allow-Methods', 'OPTIONS, POST'],
   ['Access-Control-Allow-Headers',
     'X-Requested-With, X-HTTP-Method-Override, Content-Type, ' +
@@ -37,8 +41,7 @@ const headers = [
   ['Content-Type', 'application/json']
 ];
 
-// TODO: Set this to some environment variable
-const SECRET_KEY = 'SECRET_KEY';
+
 
 let users = {};
 
@@ -163,14 +166,16 @@ function verifyClient(info, callback) {
     // Check if the correct username is decoded
     if (decode.username === session_user) {
       flag = true;
-      callback(true);
     } else {
       console.log('Inconsistent request username');
       callback(false, 401, 'Unauthorized');
     }
   }
 
-  if (flag) console.log(`Passed verifyClient: ${session_user}`);
+  if (flag) {
+    console.log(`Passed verifyClient: ${session_user}`);
+    callback(true);
+  }
 }
 
 const webSocketServer = new WebSocket.Server({ server, verifyClient });
@@ -179,24 +184,58 @@ webSocketServer.on('connection', (socket, req) => {
   let username = url.parse(req.url, true).query.session_user;
 
   // Add session record
-  console.log(`A new connection is established`);
-  sessions[username] = socket;
+  console.log(`Connection to ${username} is established`);
+  sessions[username] = { socket, isAlive: true };
 
-  socket.send(`Hello, ${username}`);
-  console.log(Object.keys(sessions));
+  // TODO: More on this later
+  // Say hello to everyone!
+  Object.entries(sessions).forEach(([_username, { socket: _socket }]) => {
+    if (_username !== username)
+      _socket.send(`${username} is now online! Currently online: ${
+        Object.keys(sessions).join(', ')}`);
+    else
+      _socket.send(`Hello, ${username}! Currently online: ${
+        Object.keys(sessions).join(', ')}`);
+  });
 
   socket.on('close', (_, reason) => {
     // Remove session record
     sessions[username] = null;
     delete sessions[username];
-    console.log(`A connection is closed`);
-    console.log(Object.keys(sessions));
+    console.log(`Connection to ${username} is closed`);
+    console.log('Current sessions:', Object.keys(sessions));
+
+    // TODO: More on this later
+    // Broadcast to everyone else
+    Object.entries(sessions).forEach(([_username, { socket: _socket }]) => {
+      if (_username !== username)
+        _socket.send(`${username} is now offline. Currently online: ${
+          Object.keys(sessions).join(', ')}`);
+    });
   });
 
+  socket.on('pong', () => { sessions[username].isAlive = true; });
+
   socket.on('message', msg => {
-    console.log('received: %s', msg);
-    socket.send(msg);
+    // TODO: More on this later
+    // Broadcast to everyone
+    Object.entries(sessions).forEach(([_username, { socket: _socket }]) => {
+      _socket.send(`${username} <${Date()}>: ${msg}`);
+    });
   });
 });
+
+// Track client connection using ping and pong
+setInterval(() => {
+  Object.entries(sessions).forEach(([username, { socket, isAlive }]) => {
+    if (!isAlive) {
+      console.log(`Ping times out, connection to ${username} is terminated`);
+      socket.terminate();
+    } else {
+      sessions[username].isAlive = false;
+      sessions[username].socket.ping(() => { });
+    }
+  })
+}, 20000);
 
 server.listen(8000);
