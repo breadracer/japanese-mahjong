@@ -1,223 +1,96 @@
 import React from 'react';
-import { BrowserRouter, Route, Link, Switch } from 'react-router-dom';
-import axios from 'axios';
+import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import cookie from 'cookie';
 import './App.css';
 
-// import Login from './Login'
-// import Register from './Register'
-// import Home from './Home'
+import { HOST_NAME } from './constants';
+import Login from './Login';
+import Register from './Register';
+import Home from './Home';
+import Gameboard from './Gameboard';
 
-// TODO: Set these to some environment variable
-const HOST_NAME = 'breadracer.com';
 
-class App extends React.Component {
+export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      username: '',
-      password: '',
+      // Connection related
       socket: null,
       connected: false,
       loggedUser: cookie.parse(document.cookie).session_user || null,
-      token: cookie.parse(document.cookie).access_token || '',
-      chatRoom: [],
-      chatInput: ''
+      token: cookie.parse(document.cookie).access_token || null,
     };
   }
 
   componentDidMount() {
-
-    // Try connect with current cookie sent in request param
-    // If auth success, connect to ws server
-    // If no cookie, go to Login page
     this.webSocketTryConnect(null);
-
   }
 
+  // Upon success, update App's state: loggedUser, connected, socket, and
+  // setup the socket's onopen, onclose function; Upon failure, do nothing
   webSocketTryConnect = _ => {
-    if (!this.state.socket) {
+    let { access_token, session_user } = cookie.parse(document.cookie);
+
+    if (this.state.socket) {
+      console.log('Already connected');
+    } else if (session_user && access_token) {
       let socket;
       try {
         socket = new WebSocket(
-          `ws://${HOST_NAME}:8000/?access_token=${
-          cookie.parse(document.cookie).access_token
-          }&session_user=${cookie.parse(document.cookie).session_user}`);
+          `ws://${HOST_NAME}:8000/?access_token=${access_token}` +
+          `&session_user=${session_user}`);
       } catch (err) {
         console.log(err);
-        return;
+        return false;
       }
 
       socket.onopen = _ => {
         console.log(`Connected to ${HOST_NAME}`);
-        this.setState({ connected: true, socket });
+        this.setState({ connected: true, socket, loggedUser: session_user });
       };
+
       socket.onclose = _ => {
         console.log(`Cannot connect or disconnected to ${HOST_NAME}`);
-        this.setState({ connected: false, socket: null, loggedUser: null });
-      };
-      socket.onmessage = event => {
-        this.setState((prevState, _) => ({
-          chatRoom: [...prevState.chatRoom, event.data]
-        }));
-      };
-    } else {
-      console.log('Already connected');
-    }
-  }
-
-  handleTestSpeed = _ => {
-    if (this.state.connected) {
-      this.state.socket.send(Date.now());
-    } else {
-      console.log('Not connected yet');
-    }
-  }
-
-  handleRegister = e => {
-    e.preventDefault();
-
-    axios.post(`http://${HOST_NAME}:8000/api/register`, {
-      username: this.state.username,
-      password: this.state.password
-    }, {
-        headers: {
-          'Cross-Domain': true,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
-      }).then(res => {
-        console.log(res.data);
-      }).catch(err => {
-        console.log(err);
-      });
-
-    this.setState({
-      username: '',
-      password: ''
-    });
-  }
-
-  handleLogin = e => {
-    e.preventDefault();
-
-    axios.post(`http://${HOST_NAME}:8000/api/login`, {
-      username: this.state.username,
-      password: this.state.password
-    }, {
-        headers: {
-          'Cross-Domain': true,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
-      }).then(res => {
-        console.log(res.data);
-        this.setState({ loggedUser: res.data.username });
-        this.webSocketTryConnect(null);
-      }).catch(err => {
-        console.log(err);
-      });
-
-    this.setState({
-      username: '',
-      password: ''
-    })
-  }
-
-  handleLogout = _ => {
-    axios.post(`http://${HOST_NAME}:8000/api/logout`, {
-      username: this.state.loggedUser,
-    }, {
-        headers: {
-          'Cross-Domain': true,
-          'Content-Type': 'application/json'
-        },
-        withCredentials: true
-      }).then(res => {
-        console.log(res.data);
-        this.state.socket.close();
-        document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 ' +
-          '00:00:01 GMT; path=/'
-        document.cookie = 'session_user=; expires=Thu, 01 Jan ' +
-          '1970 00:00:01 GMT; path=/';
         this.setState({
-          loggedUser: null,
+          connected: false,
           socket: null,
-          token: '',
-          chatRoom: [],
-          chatInput: ''
-         });
-      }).catch(err => {
-        console.log(err);
-      });
-  }
-
-  handleSendMessage = e => {
-    e.preventDefault();
-    if (this.state.connected) {
-      this.state.socket.send(this.state.chatInput);
-      this.setState({ chatInput: '' });
+          loggedUser: null,
+          token: ''
+        });
+      };
     } else {
-      console.log('Not connected yet');
+      console.log('No session is found');
+      return false;
     }
+    return true;
   }
-
-  onChange = e => { this.setState({ [e.target.name]: e.target.value }); }
 
   render() {
-    const title = this.state.connected ?
-      <h1>You are connected!</h1> :
-      <h1>Please try connect first!</h1>;
-
-    const userWelcome = this.state.loggedUser ?
-      <h3>Hi, {this.state.loggedUser}!</h3> :
-      <h3>You are not logged in</h3>;
-
-    const messageList = this.state.chatRoom.map((e, i) => <p id={i}>{e}</p>);
-
-    const mainPage = this.state.connected ?
-      <div>
-        <div>
-          <button onClick={this.handleLogout}>Log out</button>
-          <button onClick={this.handleTestSpeed}>Get ws time</button>
-        </div>
-        <div>
-          {messageList}
-        </div>
-        <form>
-          <input type='text' title='chatInput' onChange={this.onChange}
-            name='chatInput' value={this.state.chatInput} />
-          <button onClick={this.handleSendMessage}>Send</button>
-        </form>
-      </div> :
-      <form>
-        <input type='text' title='username' onChange={this.onChange}
-          name='username' value={this.state.username} />
-        <input type='password' title='password' onChange={this.onChange}
-          name='password' value={this.state.password} />
-        <button onClick={this.handleLogin}>Sign in</button>
-        <button onClick={this.handleRegister}>Sign up</button>
-      </form>
-
-
-
     return (
-      // <BrowserRouter>
-      //   <Switch>
-      //     <Route exact path='/' component={Home} />
-      //     <Route exact path='/register' component={Register} />
-      //     <Route exact path='/login' component={Login} />
-      //   </Switch>
-      // </BrowserRouter>
-
-      <div>
-        {title}
-        {userWelcome}
-        {mainPage}
-        <button onClick={this.webSocketTryConnect}>Try reconnecting</button>
-      </div>
-    )
+      <BrowserRouter>
+        <Switch>
+          <Route exact path='/' render={
+            props => !this.state.connected ?
+              <Home {...props}
+                connected={this.state.connected}
+                loggedUser={this.state.loggedUser} /> :
+              <Gameboard {...props}
+                socket={this.state.socket}
+                loggedUser={this.state.loggedUser} />
+          } />
+          <Route exact path='/register'
+            render={
+              props => <Register {...props}
+                connected={this.state.connected} />
+            } />
+          <Route exact path='/login'
+            render={
+              props => <Login {...props}
+                connected={this.state.connected}
+                webSocketTryConnect={this.webSocketTryConnect} />
+            } />
+        </Switch>
+      </BrowserRouter>
+    );
   }
 }
-
-export default App;
