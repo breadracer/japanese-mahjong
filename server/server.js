@@ -28,7 +28,7 @@ const bcrypt = require('bcrypt');
 
 // TODO: Set these to some environment variable
 const SECRET_KEY = 'SECRET_KEY';
-const HOST_NAME = 'localhost:3000';
+const HOST_NAME = 'breadracer.com';
 
 const headers = [
   ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
