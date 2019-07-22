@@ -5,7 +5,7 @@ import { HOST_NAME } from './constants'
 
 
 export default class Gameboard extends React.Component {
-  // props: socket, logged username, function to set socket's onmessage func
+  // props: socket, logged username
 
   constructor(props) {
     super(props);
@@ -53,11 +53,11 @@ export default class Gameboard extends React.Component {
   onChange = e => { this.setState({ [e.target.name]: e.target.value }); }
 
   componentDidMount() {
-    this.props.webSocketSetOnMessage(event => {
+    this.props.socket.onmessage = event => {
       this.setState((prevState, _) => ({
         chatRoom: [...prevState.chatRoom, event.data]
       }));
-    });
+    };
   }
 
   render() {
