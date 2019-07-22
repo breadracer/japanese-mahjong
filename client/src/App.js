@@ -17,8 +17,8 @@ export default class App extends React.Component {
       // Connection related
       socket: null,
       connected: false,
-      loggedUser: cookie.parse(document.cookie).session_user || null,
-      token: cookie.parse(document.cookie).access_token || null,
+      loggedUser: null,
+      token: null
     };
   }
 
