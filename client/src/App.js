@@ -65,6 +65,15 @@ export default class App extends React.Component {
     return true;
   }
 
+  webSocketSetOnMessage = callback => {
+    this.setState((prevState, _) => ({
+      socket: {
+        ...prevState.socket,
+        onmessage: callback
+      }
+    }));
+  }
+
   render() {
     return (
       <BrowserRouter>
@@ -76,7 +85,8 @@ export default class App extends React.Component {
                 loggedUser={this.state.loggedUser} /> :
               <Gameboard {...props}
                 socket={this.state.socket}
-                loggedUser={this.state.loggedUser} />
+                loggedUser={this.state.loggedUser}
+                webSocketSetOnMessage={this.webSocketSetOnMessage} />
           } />
           <Route exact path='/register'
             render={
