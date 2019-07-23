@@ -3,8 +3,10 @@ const jwt = require('jsonwebtoken');
 const url = require('url');
 
 const { HOST_NAME, SECRET_KEY } = require('./contants');
-const users = require('./Users');
+
 const sessions = require('./Sessions');
+// TODO: Change this to be interface to the database
+const users = require('./Users');
 
 const headers = [
   ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
@@ -28,7 +30,7 @@ module.exports.requestListener = function (req, res) {
     // Handle data stream
     let requestData = '';
     req.on('data', chunk => { requestData += chunk.toString(); });
-    req.on('end', () => {
+    req.on('end', async () => {
       let requestBody = JSON.parse(requestData);
       console.log('POST request', requestBody, 'to', query.pathname);
       switch (query.pathname) {
@@ -40,7 +42,7 @@ module.exports.requestListener = function (req, res) {
             res.end(JSON.stringify({ message: 'User already registered' }));
           } else {
             // Store the hashed password
-            let hash = bcrypt.hashSync(requestBody.password, 10);
+            let hash = await bcrypt.hash(requestBody.password, 10);
             users[requestBody.username] = hash;
             console.log(`Registered ${requestBody.username}`);
             res.writeHead(201, 'Created', headers);
@@ -61,7 +63,7 @@ module.exports.requestListener = function (req, res) {
 
           // Verify user information
           if (users.hasOwnProperty(username) &&
-            bcrypt.compareSync(password, users[username])) {
+            await bcrypt.compare(password, users[username])) {
 
             // Generate jwt token
             let token = jwt.sign(

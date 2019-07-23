@@ -2,8 +2,10 @@ const jwt = require('jsonwebtoken');
 const url = require('url');
 
 const { SECRET_KEY } = require('./contants');
-const users = require('./Users');
+
 const sessions = require('./Sessions');
+// TODO: Change this to be interface to the database
+const users = require('./Users');
 
 // let users = {};
 // let sessions = {};
