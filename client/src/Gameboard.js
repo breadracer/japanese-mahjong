@@ -15,7 +15,7 @@ export default class Gameboard extends React.Component {
     };
   }
 
-  handleLogout = _ => {
+  handleLogout = () => {
     axios.post(`http://${HOST_NAME}:8000/api/logout`, {
       username: this.props.loggedUser,
     }, {
@@ -54,7 +54,7 @@ export default class Gameboard extends React.Component {
 
   componentDidMount() {
     this.props.socket.onmessage = event => {
-      this.setState((prevState, _) => ({
+      this.setState(prevState => ({
         chatRoom: [...prevState.chatRoom, event.data]
       }));
     };

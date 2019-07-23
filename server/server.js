@@ -26,9 +26,8 @@ const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-// TODO: Set these to some environment variable
-const SECRET_KEY = 'SECRET_KEY';
-const HOST_NAME = 'localhost:3000';
+const SECRET_KEY = process.env.MAHJONG_SECRET_KEY;
+const HOST_NAME = process.env.MAHJONG_HOST_NAME;
 
 const headers = [
   ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
