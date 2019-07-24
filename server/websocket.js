@@ -5,7 +5,7 @@ const { SECRET_KEY } = require('./contants');
 
 const sessions = require('./Sessions');
 // TODO: Change this to be interface to the database
-const users = require('./Users');
+const Users = require('./Users');
 
 // let users = {};
 // let sessions = {};
@@ -21,7 +21,7 @@ module.exports.verifyClient = function(info, callback) {
     callback(false, 400, 'Bad Request');
 
     // Check if such user exists
-  } else if (!users.hasOwnProperty(session_user)) {
+  } else if (!Users.hasUser(session_user)) {
     console.log(`Invalid username: ${session_user}, closing connection...`);
     callback(false, 400, 'Bad Request');
   } else {
