@@ -55,7 +55,7 @@ export default class Gameboard extends React.Component {
   componentDidMount() {
     this.props.socket.onmessage = event => {
       this.setState(prevState => ({
-        chatRoom: [...prevState.chatRoom, event.data]
+        chatRoom: [...prevState.chatRoom, JSON.parse(event.data).message]
       }));
     };
   }

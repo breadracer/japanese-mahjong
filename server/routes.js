@@ -3,10 +3,8 @@ const jwt = require('jsonwebtoken');
 const url = require('url');
 
 const { HOST_NAME, SECRET_KEY } = require('./contants');
-
-const sessions = require('./Sessions');
-// TODO: Change this to be interface to the database
-const Users = require('./Users');
+const users = require('./users');
+const gameWorld = require('./gameWorld');
 
 const headers = [
   ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
@@ -37,13 +35,13 @@ module.exports.requestListener = function (req, res) {
         case '/api/register': {
           // Check if the user already exists
           // TODO: Store users in the database rather than in RAM
-          if (Users.hasUser(requestBody.username)) {
+          if (users.hasUser(requestBody.username)) {
             res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({ message: 'User already registered' }));
           } else {
             // Store the hashed password
             let hash = await bcrypt.hash(requestBody.password, 10);
-            Users.createUser(requestBody.username, hash);
+            users.createUser(requestBody.username, hash);
             console.log(`Registered ${requestBody.username}`);
             res.writeHead(201, 'Created', headers);
             res.end(JSON.stringify({ message: 'Successfully signed up' }));
@@ -54,7 +52,7 @@ module.exports.requestListener = function (req, res) {
           let { username, password } = requestBody;
 
           // Check if already logged in
-          if (sessions.hasOwnProperty(username)) {
+          if (gameWorld.hasSession(username)) {
             res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({
               message: 'Already logged in somewhere else'
@@ -62,8 +60,8 @@ module.exports.requestListener = function (req, res) {
           }
 
           // Verify user information
-          if (Users.hasUser(username) &&
-            await bcrypt.compare(password, Users.getUserToken(username))) {
+          if (users.hasUser(username) &&
+            await bcrypt.compare(password, users.getUserToken(username))) {
 
             // Generate jwt token
             let token = jwt.sign(
@@ -80,7 +78,6 @@ module.exports.requestListener = function (req, res) {
               message: `Successfully logged in: ${username}`
             }));
           } else {
-
             // 401 if verification failed
             res.writeHead(401, 'Unauthorized', headers);
             res.end(JSON.stringify({
@@ -91,7 +88,7 @@ module.exports.requestListener = function (req, res) {
         }
         case '/api/logout': {
           // Check if logged in
-          if (!sessions.hasOwnProperty(requestBody.username)) {
+          if (!gameWorld.hasSession(requestBody.username)) {
             res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({
               message: 'Not logged in'

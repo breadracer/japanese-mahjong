@@ -1,5 +1,4 @@
 // TODO: Make this the interface to the database
-
 // Data structure of a user: token, ...data
 let users = {};
 

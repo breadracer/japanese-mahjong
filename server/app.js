@@ -23,12 +23,12 @@
 const http = require('http');
 const WebSocket = require('ws');
 
-const { requestListener } = require('./http');
+const { requestListener } = require('./routes');
 const {
   connectionHandler,
   heartbeat,
   verifyClient
-} = require('./websocket');
+} = require('./events');
 
 
 const server = http.createServer(requestListener);
