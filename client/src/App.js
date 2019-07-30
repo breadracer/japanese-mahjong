@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Switch } from 'react-router-dom';
 import cookie from 'cookie';
 import './App.css';
 
-import { HOST_NAME } from './constants';
+import { constants } from './constants';
 import Login from './Login';
 import Register from './Register';
 import Home from './Home';
@@ -37,7 +37,7 @@ export default class App extends React.Component {
       let socket;
       try {
         socket = new WebSocket(
-          `ws://${HOST_NAME}:8000/?access_token=${access_token}` +
+          `ws://${constants.HOST_NAME}:8000/?access_token=${access_token}` +
           `&session_user=${session_user}`);
       } catch (err) {
         console.log(err);
@@ -45,12 +45,12 @@ export default class App extends React.Component {
       }
 
       socket.onopen = _ => {
-        console.log(`Connected to ${HOST_NAME}`);
+        console.log(`Connected to ${constants.HOST_NAME}`);
         this.setState({ connected: true, socket, loggedUser: session_user });
       };
 
       socket.onclose = _ => {
-        console.log(`Cannot connect or disconnected to ${HOST_NAME}`);
+        console.log(`Cannot connect or disconnected to ${constants.HOST_NAME}`);
         this.setState({
           connected: false,
           socket: null,

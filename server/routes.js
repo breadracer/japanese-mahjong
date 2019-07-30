@@ -2,12 +2,12 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const url = require('url');
 
-const { HOST_NAME, SECRET_KEY } = require('./contants');
+const { constants } = require('./constants');
 const users = require('./users');
 const gameWorld = require('./gameWorld');
 
 const headers = [
-  ['Access-Control-Allow-Origin', `http://${HOST_NAME}`],
+  ['Access-Control-Allow-Origin', `http://${constants.HOST_NAME}`],
   ['Access-Control-Allow-Methods', 'OPTIONS, POST, GET'],
   ['Access-Control-Allow-Headers',
     'X-Requested-With, X-HTTP-Method-Override, Content-Type, ' +
@@ -65,7 +65,7 @@ module.exports.requestListener = function (req, res) {
 
             // Generate jwt token
             let token = jwt.sign(
-              { username }, SECRET_KEY, { expiresIn: '24h' });
+              { username }, constants.SECRET_KEY, { expiresIn: '24h' });
 
             // Send back token in Set-Cookie header
             res.writeHead(200, 'OK', [

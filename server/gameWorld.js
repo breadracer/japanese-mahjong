@@ -1,17 +1,3 @@
-// Session/Game lifecycle:
-
-// User in the Game may:
-// Get all room/online user information
-// Join a room
-// Create a room w/ room name
-
-// User (creater) in the Room may:
-// start the mahjong game (for enough users)
-// exit the room (give the creater identity to others, if none, room deleted)
-
-// User (follower) in the Room may:
-// exit the room
-
 // Room: users (username), misc info...
 
 // Newly created user session added to the global Game object
@@ -32,9 +18,21 @@ class GameWorld {
     this.rooms = {}; // roomname -> roomname, usernames, mahjong, owner, size
   }
 
+  // Message handler
+  handleMessage({ type, message }) {
+
+  }
+
   // Message sender
   sendToAll(type, message) {
     this.getAllSessions().forEach(s => s.sendMessage(type, message));
+  }
+
+  sendToAllExcept(type, message, username) {
+    this.getAllSessions().forEach(s => {
+      if (s.username !== username)
+        s.sendMessage(type, message);
+    });
   }
 
   sendToRoom(type, message, roomname) {
@@ -43,8 +41,15 @@ class GameWorld {
     });
   }
 
-  sendToOne(type, message, username) {
-    this.sessions[username].sendMessage(type, message);
+  sendToRoomExcept(type, message, roomname, username) {
+    this.getSessionsByRoomname(roomname).forEach(s => {
+      if (s.username !== username)
+        s.sendMessage(type, message);
+    });
+  }
+
+  sendToOne(type, message, receiver) {
+    this.sessions[receiver].sendMessage(type, message);
   }
 
   // Sessions
@@ -116,9 +121,8 @@ class GameWorld {
 
   removeRoom(roomname) {
     if (this.rooms[roomname]) {
-      let room = this.getRoomByUsername(username);
-      if (room)
-        room.removeUser(username);
+      let users = this.getSessionsByRoomname(roomname);
+      users.forEach(u => { u.leaveRoom(); })
       delete this.rooms[roomname];
       return true;
     } else {

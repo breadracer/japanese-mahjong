@@ -13,7 +13,9 @@ class Session {
   terminateSocket() { this.socket.terminate(); }
 
   sendMessage(type, message) {
-    this.socket.send(JSON.stringify({ type, message }));
+    let data = JSON.stringify({ type, message });
+    console.log(`Send ${data} to ${this.username}`);
+    this.socket.send(data);
   }
 
   enterRoom(roomname) {

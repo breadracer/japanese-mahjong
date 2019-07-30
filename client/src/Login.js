@@ -2,7 +2,7 @@ import React from 'react';
 import { Redirect } from 'react-router-dom';
 import axios from 'axios';
 
-import { HOST_NAME } from './constants'
+import { constants } from './constants'
 
 
 export default class Login extends React.Component {
@@ -22,7 +22,7 @@ export default class Login extends React.Component {
 
   handleLogin = e => {
     e.preventDefault();
-    axios.post(`http://${HOST_NAME}:8000/api/login`, {
+    axios.post(`http://${constants.HOST_NAME}:8000/api/login`, {
       username: this.state.username,
       password: this.state.password
     }, {

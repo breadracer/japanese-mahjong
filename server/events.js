@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const url = require('url');
 
-const { SECRET_KEY } = require('./contants');
+const { constants, messageTypes } = require('./constants');
 const users = require('./users');
 const gameWorld = require('./gameWorld')
 
@@ -23,7 +23,7 @@ module.exports.verifyClient = function (info, callback) {
     // Verify client token in param query
     let decode = {};
     try {
-      decode = jwt.verify(access_token, SECRET_KEY);
+      decode = jwt.verify(access_token, constants.SECRET_KEY);
     } catch (err) {
       console.log('Invalid token', err);
       callback(false, 401, 'Unauthorized');
@@ -45,41 +45,63 @@ module.exports.verifyClient = function (info, callback) {
 }
 
 module.exports.connectionHandler = function (socket, req) {
-  let username = url.parse(req.url, true).query.session_user;
+  let session_user = url.parse(req.url, true).query.session_user;
 
   // Add session record
-  console.log(`Connection to ${username} is established`);
-  gameWorld.addSession(username, socket);
+  console.log(`Connection to ${session_user} is established`);
+  gameWorld.addSession(session_user, socket);
   console.log('Current sessions:',
     gameWorld.getAllSessions().map(s => s.username));
 
-  // TODO: More on this later
-  // Say hello to everyone!
-  gameWorld.sendToAll('CHAT', `${username} is now online! Currently ` +
-    `online: ${gameWorld.getAllSessions().map(s => s.username).join(', ')}`);
-  ;
+  // Notify all other users
+  gameWorld.sendToAllExcept(messageTypes.PUSH_USER_CONNECT, {
+    newUser: {
+      username: session_user,
+      isInRoom: false
+    }
+  }, session_user);
+
+  // Send gameWorld information to the client
+  gameWorld.sendToOne(messageTypes.PUSH_ALL_ROOMS, {
+    onlineRooms: gameWorld.getAllRooms().map(r => ({
+      roomname: r.roomname,
+      numPlayers: r.usernames.length,
+      maxPlayers: r.maxPlayers,
+      isInGame: r.game !== null,
+      owner: r.owner
+    }))
+  }, session_user);
+  gameWorld.sendToOne(messageTypes.PUSH_ALL_USERS, {
+    onlineUsers: gameWorld.getAllSessions().map(s => ({
+      username: s.username,
+      isInRoom: s.roomname !== null
+    }))
+  }, session_user);
 
   socket.on('close', (_, reason) => {
     // Remove session record
-    gameWorld.removeSession(username);
-    console.log(`Connection to ${username} is closed`);
+    gameWorld.removeSession(session_user);
+    console.log(`Connection to ${session_user} is closed`);
     console.log('Current sessions:',
       gameWorld.getAllSessions().map(s => s.username));
 
-    // TODO: More on this later
-    // Broadcast to everyone else
-    gameWorld.sendToAll('CHAT', `${username} is now offline. Currently ` +
-      `online: ${gameWorld.getAllSessions().map(s => s.username).join(', ')}`);
+    // Notify all other users
+    gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
+      removedUser: { username: session_user }}, session_user);
   });
 
   socket.on('pong', () => {
-    gameWorld.getSessionByUsername(username).setIsAlive(true);
+    gameWorld.getSessionByUsername(session_user).setIsAlive(true);
   });
 
   socket.on('message', msg => {
+    // TODO: Verify client token for each incoming message
+
     // TODO: More on this later
+    console.log(`Received ${msg} from ${session_user}`);
+    gameWorld.handleMessage(JSON.parse(msg));
     // Broadcast to everyone
-    gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
+    // gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
   });
 }
 
@@ -92,7 +114,7 @@ module.exports.heartbeat = function () {
     } else {
       s.setIsAlive(false);
       s.pingSocket();
-      console.log(`Ping to ${s.username}`);
+      console.log(`Ping to ${s.username} at ${Date()}`);
     }
   })
 };
