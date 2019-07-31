@@ -12,18 +12,81 @@
 const Session = require('./session');
 const Room = require('./room');
 
+const { messageTypes } = require('./constants');
+
 class GameWorld {
   constructor() {
     this.sessions = {}; // username -> username, socket, isAlive, roomname
     this.rooms = {}; // roomname -> roomname, usernames, mahjong, owner, size
   }
 
-  // Message handler
-  handleMessage({ type, message }) {
+  // Main message handler
+  handleMessage({ type, message }, username) {
+    switch (type) {
+      case messageTypes.PULL_ALL_ROOMS: {
+        return this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
+          this.getOnlineRoomsMessage(), username);
+      }
 
+      case messageTypes.PULL_ALL_USERS: {
+        return this.sendToOne(messageTypes.PUSH_ALL_USERS,
+          this.getOnlineUsersMessage(), username);
+      }
+
+      case messageTypes.PULL_CREATE_ROOM: {
+        if (this.addRoom(message.roomname, username, message.maxPlayers)) {
+          let room = this.getRoomByRoomname(message.roomname);
+          this.sendToAll(messageTypes.PUSH_CREATE_ROOM, {
+            isValid: true,
+            roomname: room.roomname,
+            numPlayers: room.usernames.length,
+            maxPlayers: room.maxPlayers,
+            isInGame: room.game !== null,
+            owner: room.owner
+          });
+        } else {
+          return this.sendToAll(messageTypes.PUSH_CREATE_ROOM,
+            { isValid: false });
+        }
+      }
+    }
   }
 
-  // Message sender
+  // Common message helper functions
+  syncGameWorldToAll() {
+    this.sendToAll(messageTypes.PUSH_ALL_ROOMS,
+      this.getOnlineRoomsMessage());
+    this.sendToAll(messageTypes.PUSH_ALL_USERS,
+      this.getOnlineUsersMessage());
+  }
+
+  syncGameWorldToOne(username) {
+    this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
+      this.getOnlineRoomsMessage(), username);
+    this.sendToOne(messageTypes.PUSH_ALL_USERS,
+      this.getOnlineUsersMessage(), username);
+  }
+
+  getOnlineRoomsMessage() {
+    let onlineRooms = this.getAllRooms().map(r => ({
+      roomname: r.roomname,
+      numPlayers: r.usernames.length,
+      maxPlayers: r.maxPlayers,
+      isInGame: r.game !== null,
+      owner: r.owner
+    }));
+    return { onlineRooms };
+  }
+
+  getOnlineUsersMessage() {
+    let onlineUsers = this.getAllSessions().map(s => ({
+      username: s.username,
+      isInRoom: s.roomname !== null
+    }));
+    return { onlineUsers };
+  }
+
+  // Message senders
   sendToAll(type, message) {
     this.getAllSessions().forEach(s => s.sendMessage(type, message));
   }
@@ -48,8 +111,8 @@ class GameWorld {
     });
   }
 
-  sendToOne(type, message, receiver) {
-    this.sessions[receiver].sendMessage(type, message);
+  sendToOne(type, message, username) {
+    this.sessions[username].sendMessage(type, message);
   }
 
   // Sessions
@@ -109,10 +172,11 @@ class GameWorld {
   hasRoom(roomname) { return this.rooms.hasOwnProperty(roomname); }
 
   addRoom(roomname, username, maxPlayers = 4) {
-    if (!this.rooms[roomname]) {
+    if (!this.sessions[username].isInRoom() && !this.rooms[roomname]) {
       this.rooms[roomname] = new Room(roomname, maxPlayers);
       this.rooms[roomname].addUser(username);
       this.rooms[roomname].setOwner(username);
+      this.getSessionByUsername(username).enterRoom(roomname);
       return true;
     } else {
       return false;

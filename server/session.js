@@ -18,6 +18,8 @@ class Session {
     this.socket.send(data);
   }
 
+  isInRoom() { return !!this.roomname; }
+
   enterRoom(roomname) {
     if (!this.roomname) {
       this.roomname = roomname;

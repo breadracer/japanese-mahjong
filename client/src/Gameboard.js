@@ -37,25 +37,36 @@ export default class Gameboard extends React.Component {
 
 
   handleReceiveMessage = event => {
-    let data = JSON.parse(event.data);
-    console.log(data);
-    switch (data.type) {
+    let { type, message } = JSON.parse(event.data);
+    console.log('Received:', event.data);
+    switch (type) {
       case messageTypes.PUSH_USER_CONNECT: {
         return this.setState(prevState => ({
-          onlineUsers: [...prevState.onlineUsers, data.message.newUser]
+          onlineUsers: [...prevState.onlineUsers, message.newUser]
         }));
       }
       case messageTypes.PUSH_USER_DISCONNECT: {
         return this.setState(prevState => ({
           onlineUsers: prevState.onlineUsers.filter(u => 
-            u.username !== data.message.removedUser.username)
+            u.username !== message.removedUser.username)
         }));
       }
       case messageTypes.PUSH_ALL_ROOMS: {
-        return this.setState({ onlineRooms: [...data.message.onlineRooms] });
+        return this.setState({ onlineRooms: [...message.onlineRooms] });
       }
       case messageTypes.PUSH_ALL_USERS: {
-        return this.setState({ onlineUsers: [...data.message.onlineUsers] });
+        return this.setState({ onlineUsers: [...message.onlineUsers] });
+      }
+      case messageTypes.PUSH_CREATE_ROOM: {
+        if (message.isValid) {
+          let { roomname, numPlayers, maxPlayers, isInGame, owner } = message;
+          return this.setState(prevState => ({
+            onlineRooms: [
+              ...prevState.onlineRooms, {
+               roomname, numPlayers, maxPlayers, isInGame, owner
+              }]
+          }));
+        }
       }
       default: {
         console.log('Invalid message type');
@@ -67,7 +78,9 @@ export default class Gameboard extends React.Component {
   }
 
   sendMessage = (type, message) => {
-    this.props.socket.send(JSON.stringify({ type, message }));
+    let payload = JSON.stringify({ type, message });
+    console.log('Sent:', payload);
+    this.props.socket.send(payload);
   }
 
   // handleSendMessage = e => {

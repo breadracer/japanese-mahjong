@@ -3,7 +3,7 @@ const url = require('url');
 
 const { constants, messageTypes } = require('./constants');
 const users = require('./users');
-const gameWorld = require('./gameWorld')
+const gameWorld = require('./gameWorld');
 
 module.exports.verifyClient = function (info, callback) {
   let { access_token, session_user } = url.parse(info.req.url, true).query;
@@ -62,21 +62,7 @@ module.exports.connectionHandler = function (socket, req) {
   }, session_user);
 
   // Send gameWorld information to the client
-  gameWorld.sendToOne(messageTypes.PUSH_ALL_ROOMS, {
-    onlineRooms: gameWorld.getAllRooms().map(r => ({
-      roomname: r.roomname,
-      numPlayers: r.usernames.length,
-      maxPlayers: r.maxPlayers,
-      isInGame: r.game !== null,
-      owner: r.owner
-    }))
-  }, session_user);
-  gameWorld.sendToOne(messageTypes.PUSH_ALL_USERS, {
-    onlineUsers: gameWorld.getAllSessions().map(s => ({
-      username: s.username,
-      isInRoom: s.roomname !== null
-    }))
-  }, session_user);
+  gameWorld.syncGameWorldToOne(session_user);
 
   socket.on('close', (_, reason) => {
     // Remove session record
@@ -87,7 +73,8 @@ module.exports.connectionHandler = function (socket, req) {
 
     // Notify all other users
     gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
-      removedUser: { username: session_user }}, session_user);
+      removedUser: { username: session_user }
+    }, session_user);
   });
 
   socket.on('pong', () => {
@@ -99,7 +86,7 @@ module.exports.connectionHandler = function (socket, req) {
 
     // TODO: More on this later
     console.log(`Received ${msg} from ${session_user}`);
-    gameWorld.handleMessage(JSON.parse(msg));
+    gameWorld.handleMessage(JSON.parse(msg), session_user);
     // Broadcast to everyone
     // gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
   });
