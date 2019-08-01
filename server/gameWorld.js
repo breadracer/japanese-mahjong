@@ -38,11 +38,13 @@ class GameWorld {
           let room = this.getRoomByRoomname(message.roomname);
           this.sendToAll(messageTypes.PUSH_CREATE_ROOM, {
             isValid: true,
-            roomname: room.roomname,
-            numPlayers: room.usernames.length,
-            maxPlayers: room.maxPlayers,
-            isInGame: room.game !== null,
-            owner: room.owner
+            newRoom: {
+              roomname: room.roomname,
+              usernames: room.usernames,
+              maxPlayers: room.maxPlayers,
+              isInGame: room.game !== null,
+              owner: room.owner
+            }
           });
         } else {
           return this.sendToAll(messageTypes.PUSH_CREATE_ROOM,
@@ -53,24 +55,25 @@ class GameWorld {
   }
 
   // Common message helper functions
-  syncGameWorldToAll() {
-    this.sendToAll(messageTypes.PUSH_ALL_ROOMS,
-      this.getOnlineRoomsMessage());
-    this.sendToAll(messageTypes.PUSH_ALL_USERS,
-      this.getOnlineUsersMessage());
-  }
 
-  syncGameWorldToOne(username) {
-    this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
-      this.getOnlineRoomsMessage(), username);
-    this.sendToOne(messageTypes.PUSH_ALL_USERS,
-      this.getOnlineUsersMessage(), username);
-  }
+  // syncGameWorldToAll() {
+  //   this.sendToAll(messageTypes.PUSH_ALL_ROOMS,
+  //     this.getOnlineRoomsMessage());
+  //   this.sendToAll(messageTypes.PUSH_ALL_USERS,
+  //     this.getOnlineUsersMessage());
+  // }
+
+  // syncGameWorldToOne(username) {
+  //   this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
+  //     this.getOnlineRoomsMessage(), username);
+  //   this.sendToOne(messageTypes.PUSH_ALL_USERS,
+  //     this.getOnlineUsersMessage(), username);
+  // }
 
   getOnlineRoomsMessage() {
     let onlineRooms = this.getAllRooms().map(r => ({
       roomname: r.roomname,
-      numPlayers: r.usernames.length,
+      usernames: r.usernames,
       maxPlayers: r.maxPlayers,
       isInGame: r.game !== null,
       owner: r.owner
@@ -81,7 +84,7 @@ class GameWorld {
   getOnlineUsersMessage() {
     let onlineUsers = this.getAllSessions().map(s => ({
       username: s.username,
-      isInRoom: s.roomname !== null
+      roomname: s.roomname
     }));
     return { onlineUsers };
   }
@@ -145,8 +148,10 @@ class GameWorld {
   removeSession(username) {
     if (this.sessions[username]) {
       let room = this.getRoomByUsername(username);
-      if (room)
+      // Remove the user from the room if there is one
+      if (room) {
         room.removeUser(username);
+      }
       delete this.sessions[username];
       return true;
     } else {

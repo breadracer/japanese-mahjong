@@ -18,7 +18,7 @@ export default class Gameboard extends React.Component {
       // Display game world information:
       // index page (OUT_ROOM)
       onlineRooms: [], // Room: roomname, room size, current # of players, owner
-      onlineUsers: [], // User: username
+      onlineUsers: [], // User: username, roomname
 
       // In-room page (IN_ROOM)
       roomname: null,
@@ -45,29 +45,79 @@ export default class Gameboard extends React.Component {
           onlineUsers: [...prevState.onlineUsers, message.newUser]
         }));
       }
+
+      // If user in-room, also need to remove the user from the room
       case messageTypes.PUSH_USER_DISCONNECT: {
-        return this.setState(prevState => ({
-          onlineUsers: prevState.onlineUsers.filter(u => 
-            u.username !== message.removedUser.username)
-        }));
+        return this.setState(prevState => {
+          let { username, roomname } = message.removedUser;
+
+          // If user is in-room
+          if (roomname) {
+            let prevRooms = [...prevState.onlineRooms];
+            let { usernames, owner } = message.updatedRoom;
+
+            if (usernames.length !== 0) {
+              // If that room is not empty
+              let targetRoom = prevRooms.find(r => r.roomname === roomname);
+              if (targetRoom) {
+                targetRoom.usernames = usernames;
+                targetRoom.owner = owner;
+                return {
+                  onlineUsers: prevState.onlineUsers.filter(u =>
+                    u.username !== username),
+                  onlineRooms: prevRooms
+                };
+              } else {
+                console.log('Error: synchronization error');
+              }
+            } else {
+              // If that room is empty
+              return {
+                onlineUsers: prevState.onlineUsers.filter(u =>
+                  u.username !== username),
+                onlineRooms: prevRooms.filter(r => r.roomname !== roomname)
+              }
+            }
+          } else {
+            // If user is out-room
+            return {
+              onlineUsers: prevState.onlineUsers.filter(u =>
+                u.username !== username)
+            };
+          }
+        });
       }
+
       case messageTypes.PUSH_ALL_ROOMS: {
         return this.setState({ onlineRooms: [...message.onlineRooms] });
       }
+
       case messageTypes.PUSH_ALL_USERS: {
         return this.setState({ onlineUsers: [...message.onlineUsers] });
       }
+
+      // Create a new room and let the owner join the new room
       case messageTypes.PUSH_CREATE_ROOM: {
         if (message.isValid) {
-          let { roomname, numPlayers, maxPlayers, isInGame, owner } = message;
-          return this.setState(prevState => ({
-            onlineRooms: [
-              ...prevState.onlineRooms, {
-               roomname, numPlayers, maxPlayers, isInGame, owner
-              }]
-          }));
+          let { owner } = message.newRoom;
+          this.setState(prevState => {
+            // Validate that the owner is online, and let the owner join
+            let prevUsers = [...prevState.onlineUsers];
+            let user = prevUsers.find(u => u.username === owner);
+            if (user) {
+              user.roomname = message.newRoom.roomname;
+              return {
+                onlineRooms: [...prevState.onlineRooms, message.newRoom],
+                onlineUsers: [...prevUsers]
+              }
+            } else {
+              console.log('Error: owner of the new room is offline');
+            }
+          });
         }
+        return;
       }
+
       default: {
         console.log('Invalid message type');
       }

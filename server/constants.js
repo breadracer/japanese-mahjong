@@ -30,12 +30,23 @@ module.exports.messageTypes = {
 
   // Push message types
 
-  // User session related:
+  // OUT_ROOM
+
+  // Update online user list
+  // newUser: username, roomname
   PUSH_USER_CONNECT: 'PUSH_USER_CONNECT',
+  // Update online user list, if this user is in-room update online room list
+  // removedUser: username, roomname
   PUSH_USER_DISCONNECT: 'PUSH_USER_DISCONNECT',
 
+  // Re-generate online room list
+  // onlineRooms[]: roomname, numPlayers, maxPlayers, isInGame, owner
   PUSH_ALL_ROOMS: 'PUSH_ALL_ROOMS',
+  // Re-generate online user list
+  // onlineUsers[]: username, roomname
   PUSH_ALL_USERS: 'PUSH_ALL_USERS',
+  // Update online room list and user list
+  // isValid; newRoom: roomname, numPlayers, maxPlayers, isInGame, owner
   PUSH_CREATE_ROOM: 'PUSH_CREATE_ROOM',
   PUSH_JOIN_ROOM: 'PUSH_JOIN_ROOM',
 
@@ -43,7 +54,5 @@ module.exports.messageTypes = {
 
   PUSH_EXIT_ROOM: 'PUSH_EXIT_ROOM',
   PUSH_CHAT_MESSAGE: 'PUSH_CHAT_MESSAGE',
-
-
 
 };

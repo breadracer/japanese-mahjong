@@ -57,24 +57,49 @@ module.exports.connectionHandler = function (socket, req) {
   gameWorld.sendToAllExcept(messageTypes.PUSH_USER_CONNECT, {
     newUser: {
       username: session_user,
-      isInRoom: false
+      roomname: null
     }
   }, session_user);
 
   // Send gameWorld information to the client
-  gameWorld.syncGameWorldToOne(session_user);
+  gameWorld.sendToOne(messageTypes.PUSH_ALL_ROOMS,
+    gameWorld.getOnlineRoomsMessage(), session_user);
+  gameWorld.sendToOne(messageTypes.PUSH_ALL_USERS,
+    gameWorld.getOnlineUsersMessage(), session_user);
 
   socket.on('close', (_, reason) => {
-    // Remove session record
+    // Delete the user session and possibly empty room on the server-side
+    let room = gameWorld.getRoomByUsername(session_user);
     gameWorld.removeSession(session_user);
+
+    // Notify all other users
+    if (room) {
+      gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
+        removedUser: {
+          username: session_user,
+          roomname: room.roomname
+        },
+        updatedRoom: {
+          usernames: room.usernames,
+          owner: room.owner
+        }
+      }, session_user);
+    } else {
+      gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
+        removedUser: {
+          username: session_user,
+          roomname: null
+        }
+      }, session_user);
+    }
+
+    // If room is emtpy, remove that room
+    if (room && room.isEmpty())
+      gameWorld.removeRoom(room.roomname);
+
     console.log(`Connection to ${session_user} is closed`);
     console.log('Current sessions:',
       gameWorld.getAllSessions().map(s => s.username));
-
-    // Notify all other users
-    gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
-      removedUser: { username: session_user }
-    }, session_user);
   });
 
   socket.on('pong', () => {

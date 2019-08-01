@@ -39,7 +39,7 @@ class RoomList extends React.Component {
   render() {
     const roomList = this.props.onlineRooms.map((r, i) =>
       <li key={i}>
-        <strong>{r.roomname}</strong> {r.numPlayers}/{r.maxPlayers}
+        <strong>{r.roomname}</strong> {r.usernames.length}/{r.maxPlayers}
       </li>);
     const userList = this.props.onlineUsers.map((u, i) =>
       <li key={i}>{u.username}</li>);
