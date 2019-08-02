@@ -67,6 +67,20 @@ module.exports.connectionHandler = function (socket, req) {
   gameWorld.sendToOne(messageTypes.PUSH_ALL_USERS,
     gameWorld.getOnlineUsersMessage(), session_user);
 
+
+  socket.on('pong', () => {
+    gameWorld.getSessionByUsername(session_user).setIsAlive(true);
+  });
+
+  socket.on('message', msg => {
+    // TODO: Verify client token for each incoming message
+
+    console.log(`Received ${msg} from ${session_user}`);
+    gameWorld.handleMessage(JSON.parse(msg), session_user);
+    // Broadcast to everyone
+    // gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
+  });
+
   socket.on('close', (_, reason) => {
     // Delete the user session and possibly empty room on the server-side
     let room = gameWorld.getRoomByUsername(session_user);
@@ -74,6 +88,8 @@ module.exports.connectionHandler = function (socket, req) {
 
     // Notify all other users
     if (room) {
+      // If user is inside a room, notify the client to delete the user and 
+      // update room info
       gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
         removedUser: {
           username: session_user,
@@ -85,6 +101,7 @@ module.exports.connectionHandler = function (socket, req) {
         }
       }, session_user);
     } else {
+      // If user is not in a room, just let the client delete the user
       gameWorld.sendToAllExcept(messageTypes.PUSH_USER_DISCONNECT, {
         removedUser: {
           username: session_user,
@@ -100,20 +117,6 @@ module.exports.connectionHandler = function (socket, req) {
     console.log(`Connection to ${session_user} is closed`);
     console.log('Current sessions:',
       gameWorld.getAllSessions().map(s => s.username));
-  });
-
-  socket.on('pong', () => {
-    gameWorld.getSessionByUsername(session_user).setIsAlive(true);
-  });
-
-  socket.on('message', msg => {
-    // TODO: Verify client token for each incoming message
-
-    // TODO: More on this later
-    console.log(`Received ${msg} from ${session_user}`);
-    gameWorld.handleMessage(JSON.parse(msg), session_user);
-    // Broadcast to everyone
-    // gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
   });
 }
 

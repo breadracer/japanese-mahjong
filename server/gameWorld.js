@@ -17,11 +17,12 @@ const { messageTypes } = require('./constants');
 class GameWorld {
   constructor() {
     this.sessions = {}; // username -> username, socket, isAlive, roomname
-    this.rooms = {}; // roomname -> roomname, usernames, mahjong, owner, size
+    this.rooms = {}; // roomname -> roomname, usernames, game, owner, size
   }
 
   // Main message handler
   handleMessage({ type, message }, username) {
+    // Assume username's session exists
     switch (type) {
       case messageTypes.PULL_ALL_ROOMS: {
         return this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
@@ -45,10 +46,54 @@ class GameWorld {
               isInGame: room.game !== null,
               owner: room.owner
             }
+            // updatedUser is newRoom's owner
           });
         } else {
-          return this.sendToAll(messageTypes.PUSH_CREATE_ROOM,
-            { isValid: false });
+          this.sendToAll(messageTypes.PUSH_CREATE_ROOM, { isValid: false });
+        }
+        return;
+      }
+
+      case messageTypes.PULL_JOIN_ROOM: {
+        if (this.hasRoom(message.roomname) &&
+          this.getRoomByRoomname(message.roomname).addUser(username) &&
+          this.getSessionByUsername(username).enterRoom(message.roomname)) {
+          let room = this.getRoomByRoomname(message.roomname);
+          this.sendToAll(messageTypes.PUSH_JOIN_ROOM, {
+            isValid: true,
+            updatedRoom: {
+              roomname: room.roomname,
+              usernames: room.usernames,
+              maxPlayers: room.maxPlayers,
+              owner: room.owner,
+            },
+            updatedUser: { username, roomname: room.roomname }
+          });
+        } else {
+          this.sendToAll(messageTypes.PUSH_JOIN_ROOM, { isValid: false });
+        }
+        return;
+      }
+
+      case messageTypes.PULL_EXIT_ROOM: {
+        if (this.hasRoom(message.roomname) &&
+          this.getRoomByRoomname(message.roomname).removeUser(username) &&
+          this.getSessionByUsername(username).leaveRoom()) {
+          let room = this.getRoomByRoomname(message.roomname);
+          this.sendToAll(messageTypes.PUSH_EXIT_ROOM, {
+            isValid: true,
+            updatedRoom: {
+              roomname: room.roomname,
+              usernames: room.usernames,
+              owner: room.owner
+            },
+            updatedUser: { username }
+          });
+          if (room.isEmpty()) {
+            this.removeRoom(room.roomname);
+          }
+        } else {
+          this.sendToAll(messageTypes.PUSH_EXIT_ROOM, { isValid: false });
         }
       }
     }
@@ -176,6 +221,7 @@ class GameWorld {
 
   hasRoom(roomname) { return this.rooms.hasOwnProperty(roomname); }
 
+  // Add room, set owner, and associate first user with the room
   addRoom(roomname, username, maxPlayers = 4) {
     if (!this.sessions[username].isInRoom() && !this.rooms[roomname]) {
       this.rooms[roomname] = new Room(roomname, maxPlayers);
@@ -188,6 +234,7 @@ class GameWorld {
     }
   }
 
+  // Remove room and let each of the users leave the room
   removeRoom(roomname) {
     if (this.rooms[roomname]) {
       let users = this.getSessionsByRoomname(roomname);

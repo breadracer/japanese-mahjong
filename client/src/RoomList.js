@@ -26,7 +26,7 @@ class RoomList extends React.Component {
     e.preventDefault();
     if (this.props.onlineRooms.some(r =>
       r.roomname === this.state.newRoomname)) {
-        console.log('Room name already occupied');
+      console.log('Room name already occupied');
     } else {
       this.props.sendMessage(messageTypes.PULL_CREATE_ROOM, {
         roomname: this.state.newRoomname,
@@ -36,16 +36,36 @@ class RoomList extends React.Component {
     }
   }
 
+  handleJoinRoom = roomname => {
+    let room = this.props.onlineRooms.find(r => r.roomname === roomname);
+    if (room.usernames.length < room.maxPlayers) {
+      this.props.sendMessage(messageTypes.PULL_JOIN_ROOM, {
+        roomname: room.roomname
+      });
+    } else {
+      console.log('Room is full');
+    }
+  }
+
   render() {
+    console.log('RoomList rendered');
     const roomList = this.props.onlineRooms.map((r, i) =>
       <li key={i}>
-        <strong>{r.roomname}</strong> {r.usernames.length}/{r.maxPlayers}
+        <span>
+          <strong>{r.roomname} </strong>
+          {`${r.usernames.length}/${r.maxPlayers} owner: ${r.owner} ` +
+            `members: ${r.usernames.join()} `}
+        </span>
+        <button onClick={this.handleJoinRoom.bind(this, r.roomname)}>
+          Join</button>
       </li>);
-    const userList = this.props.onlineUsers.map((u, i) =>
-      <li key={i}>{u.username}</li>);
+    const userList = this.props.onlineUsers.map((u, i) => <li key={i}>{
+      `${u.username} ${u.roomname ?
+        'room: ' + u.roomname : 'out of room'}`
+    }</li>);
     return (
       <div>
-        <h1>Welcome to the roomlist page!</h1>
+        <h1>Welcome to the roomlist page, {this.props.loggedUser}.</h1>
         <div>
           <button onClick={this.props.handleLogout}>Log out</button>
           {/* <button onClick={this.handleTestSpeed}>Get ws time</button> */}

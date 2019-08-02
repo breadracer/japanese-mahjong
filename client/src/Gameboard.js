@@ -23,7 +23,8 @@ export default class Gameboard extends React.Component {
       // In-room page (IN_ROOM)
       roomname: null,
       inRoomUsers: [], // User: username
-      isOwner: false,
+      maxPlayers: null,
+      owner: null,
       chatInput: '',
       chatRoom: [],
 
@@ -58,15 +59,27 @@ export default class Gameboard extends React.Component {
 
             if (usernames.length !== 0) {
               // If that room is not empty
-              let targetRoom = prevRooms.find(r => r.roomname === roomname);
-              if (targetRoom) {
-                targetRoom.usernames = usernames;
-                targetRoom.owner = owner;
-                return {
-                  onlineUsers: prevState.onlineUsers.filter(u =>
-                    u.username !== username),
-                  onlineRooms: prevRooms
-                };
+              let room = prevRooms.find(r => r.roomname === roomname);
+              if (room) {
+                room.usernames = usernames;
+                room.owner = owner;
+
+                if (this.state.status === userStatus.IN_ROOM &&
+                  this.state.roomname === roomname) {
+                  return {
+                    onlineUsers: prevState.onlineUsers.filter(u =>
+                      u.username !== username),
+                    onlineRooms: prevRooms,
+                    inRoomUsers: usernames,
+                    owner: owner
+                  };
+                } else {
+                  return {
+                    onlineUsers: prevState.onlineUsers.filter(u =>
+                      u.username !== username),
+                    onlineRooms: prevRooms
+                  };
+                }
               } else {
                 console.log('Error: synchronization error');
               }
@@ -76,7 +89,7 @@ export default class Gameboard extends React.Component {
                 onlineUsers: prevState.onlineUsers.filter(u =>
                   u.username !== username),
                 onlineRooms: prevRooms.filter(r => r.roomname !== roomname)
-              }
+              };
             }
           } else {
             // If user is out-room
@@ -99,19 +112,127 @@ export default class Gameboard extends React.Component {
       // Create a new room and let the owner join the new room
       case messageTypes.PUSH_CREATE_ROOM: {
         if (message.isValid) {
-          let { owner } = message.newRoom;
+          let { owner, roomname, maxPlayers, usernames } = message.newRoom;
           this.setState(prevState => {
             // Validate that the owner is online, and let the owner join
             let prevUsers = [...prevState.onlineUsers];
             let user = prevUsers.find(u => u.username === owner);
             if (user) {
               user.roomname = message.newRoom.roomname;
-              return {
-                onlineRooms: [...prevState.onlineRooms, message.newRoom],
-                onlineUsers: [...prevUsers]
+              if (user.username === this.props.loggedUser) {
+                return {
+                  status: userStatus.IN_ROOM,
+                  onlineRooms: [...prevState.onlineRooms, message.newRoom],
+                  onlineUsers: [...prevUsers],
+                  roomname,
+                  inRoomUsers: usernames,
+                  maxPlayers,
+                  owner
+                }
+              } else {
+                return {
+                  onlineRooms: [...prevState.onlineRooms, message.newRoom],
+                  onlineUsers: [...prevUsers]
+                };
               }
             } else {
               console.log('Error: owner of the new room is offline');
+              return {};
+            }
+          });
+        }
+        return;
+      }
+
+      case messageTypes.PUSH_JOIN_ROOM: {
+        if (message.isValid) {
+          let { roomname, usernames, maxPlayers, owner } = message.updatedRoom;
+          let { username } = message.updatedUser;
+          this.setState(prevState => {
+            let prevRooms = [...prevState.onlineRooms];
+            let prevUsers = [...prevState.onlineUsers];
+            let room = prevRooms.find(r => r.roomname === roomname);
+            let user = prevUsers.find(u => u.username === username);
+            if (room && user) {
+              room.usernames = [...usernames];
+              user.roomname = roomname;
+              if (username === this.props.loggedUser) {
+                return {
+                  status: userStatus.IN_ROOM,
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers],
+                  roomname,
+                  inRoomUsers: usernames,
+                  maxPlayers,
+                  owner
+                };
+              } else if (this.state.status === userStatus.IN_ROOM &&
+                roomname === this.state.roomname) {
+                return {
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers],
+                  inRoomUsers: usernames,
+                }
+              } else {
+                return {
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers]
+                };
+              }
+            } else {
+              console.log('Error: user or room does not exist');
+              return {};
+            }
+          });
+        }
+        return;
+      }
+
+      case messageTypes.PUSH_EXIT_ROOM: {
+        if (message.isValid) {
+          let { usernames, owner, roomname } = message.updatedRoom;
+          let { username } = message.updatedUser;
+          this.setState(prevState => {
+            let prevRooms = [...prevState.onlineRooms];
+            let prevUsers = [...prevState.onlineUsers];
+            let room = prevRooms.find(r => r.roomname === roomname);
+            let user = prevUsers.find(u => u.username === username);
+            if (room && user) {
+              room.usernames = usernames;
+              room.owner = owner;
+              user.roomname = null;
+              if (room.usernames.length === 0) {
+                prevRooms = prevRooms.filter(r => r.roomname !== roomname);
+              }
+              if (username === this.props.loggedUser) {
+                return {
+                  status: userStatus.OUT_ROOM,
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers],
+                  roomname: null,
+                  inRoomUsers: [],
+                  maxPlayers: null,
+                  owner: null,
+                  chatRoom: [],
+                  chatInput: ''
+                };
+              } else if (this.state.status === userStatus.IN_ROOM &&
+                roomname === this.state.roomname) {
+                return {
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers],
+                  inRoomUsers: usernames,
+                  owner
+                };
+              } else {
+                return {
+                  onlineRooms: [...prevRooms],
+                  onlineUsers: [...prevUsers]
+                };
+              }
+            } else {
+              console.log('Error: user or room does not exist');
+              return {};
             }
           });
         }
@@ -156,7 +277,7 @@ export default class Gameboard extends React.Component {
         console.log(res.data);
         this.props.socket.close();
         document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 ' +
-          '00:00:01 GMT; path=/'
+          '00:00:01 GMT; path=/';
         document.cookie = 'session_user=; expires=Thu, 01 Jan ' +
           '1970 00:00:01 GMT; path=/';
       }).catch(err => {
@@ -165,6 +286,7 @@ export default class Gameboard extends React.Component {
   }
 
   render() {
+    console.log('Gameboard rendered');
     switch (this.state.status) {
       case userStatus.OUT_ROOM:
         return <RoomList
@@ -177,6 +299,13 @@ export default class Gameboard extends React.Component {
       case userStatus.IN_ROOM:
         return <Room
           loggedUser={this.props.loggedUser}
+          roomname={this.state.roomname}
+          inRoomUsers={this.state.inRoomUsers}
+          maxPlayers={this.state.maxPlayers}
+          owner={this.state.owner}
+          chatRoom={this.state.chatRoom}
+          chatInput={this.state.chatInput}
+          handleLogout={this.handleLogout}
           sendMessage={this.sendMessage}
         />;
       case userStatus.IN_GAME:
