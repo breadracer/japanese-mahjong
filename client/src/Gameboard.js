@@ -6,7 +6,7 @@ import RoomList from './RoomList';
 import Room from './Room';
 import Game from './Game';
 
-export default class Gameboard extends React.Component {
+class Gameboard extends React.Component {
   // props: socket, logged username
 
   constructor(props) {
@@ -337,3 +337,5 @@ export default class Gameboard extends React.Component {
     // )
   }
 }
+
+export default Gameboard;

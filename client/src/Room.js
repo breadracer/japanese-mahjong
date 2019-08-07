@@ -15,6 +15,7 @@ class Room extends React.Component {
   }
 
   render() {
+    console.log('Room rendered')
     const userList = this.props.inRoomUsers.map((u, i) => (
       u === this.props.owner ?
         <li key={i}><strong>{u}</strong></li> :

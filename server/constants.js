@@ -59,6 +59,9 @@ module.exports.messageTypes = {
 
   PUSH_START_GAME: 'PUSH_START_GAME',
 
+  // Update online room list and user list
+  // isValid; updatedUser: username;
+  // updatedRoom: roomname, usernames, owner;
   PUSH_EXIT_ROOM: 'PUSH_EXIT_ROOM',
   PUSH_CHAT_MESSAGE: 'PUSH_CHAT_MESSAGE',
 
