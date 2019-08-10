@@ -11,6 +11,7 @@
 
 const Session = require('./session');
 const Room = require('./room');
+const Game = require('./game');
 
 const { messageTypes } = require('./constants');
 
@@ -42,6 +43,7 @@ class GameWorld {
             newRoom: {
               roomname: room.roomname,
               usernames: room.usernames,
+              botnames: room.botnames,
               maxPlayers: room.maxPlayers,
               isInGame: room.game !== null,
               owner: room.owner
@@ -64,6 +66,7 @@ class GameWorld {
             updatedRoom: {
               roomname: room.roomname,
               usernames: room.usernames,
+              botnames: room.botnames,
               maxPlayers: room.maxPlayers,
               owner: room.owner,
             },
@@ -85,6 +88,7 @@ class GameWorld {
             updatedRoom: {
               roomname: room.roomname,
               usernames: room.usernames,
+              botnames: room.botnames,
               owner: room.owner
             },
             updatedUser: { username }
@@ -94,6 +98,31 @@ class GameWorld {
           }
         } else {
           this.sendToAll(messageTypes.PUSH_EXIT_ROOM, { isValid: false });
+        }
+      }
+
+      // TODO
+      case messageTypes.PULL_ADD_BOT: return;
+      case messageTypes.PULL_REMOVE_BOT: return;
+
+      case messageTypes.PULL_START_GAME: {
+        let room = this.getRoomByRoomname(message.roomname);
+        if (room && room.isFull() && !room.isInGame()) {
+          // TODO: Init game data in the target room
+          room.startGame();
+          this.sendToAll(messageTypes.PUSH_START_GAME, {
+            isValid: true,
+            updatedRoom: {
+              roomname: room.roomname
+            }
+          });
+          this.sendToRoom(messageTypes.PUSH_INIT_GAME, {
+            // TODO: Push game data to the room
+            roomname: room.roomname,
+            game: JSON.stringify(room.game)
+          }, room.roomname);
+        } else {
+          this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
       }
     }
@@ -119,6 +148,7 @@ class GameWorld {
     let onlineRooms = this.getAllRooms().map(r => ({
       roomname: r.roomname,
       usernames: r.usernames,
+      botnames: r.botnames,
       maxPlayers: r.maxPlayers,
       isInGame: r.game !== null,
       owner: r.owner

@@ -3,12 +3,13 @@ import React from 'react';
 import { messageTypes } from './constants';
 
 class RoomList extends React.Component {
+  // props: loggedUser, onlineRooms, onlineUsers, helper funcs
   constructor(props) {
     super(props);
     this.state = {
       newRoomname: '',
       newMaxPlayers: 4
-    }
+    };
   }
 
   shouldComponentUpdate(nextProps) {
@@ -24,7 +25,9 @@ class RoomList extends React.Component {
 
   handleCreateRoom = e => {
     e.preventDefault();
-    if (this.props.onlineRooms.some(r =>
+    if (this.state.newRoomname === '') {
+      console.log('Room name cannot be empty');
+    } else if (this.props.onlineRooms.some(r =>
       r.roomname === this.state.newRoomname)) {
       console.log('Room name already occupied');
     } else {

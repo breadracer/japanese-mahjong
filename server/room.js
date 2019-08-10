@@ -1,13 +1,18 @@
+const Game = require('./game');
+
 class Room {
   constructor(roomname, maxPlayers) {
     this.roomname = roomname;
     this.maxPlayers = maxPlayers;
     this.usernames = [];
+    this.botnames = [];
     this.owner = null;
     this.game = null;
   }
 
-  isFull() { return this.usernames.length === this.maxPlayers; }
+  isFull() {
+    return this.usernames.length + this.botnames.length === this.maxPlayers;
+  }
   isEmpty() { return this.usernames.length === 0; }
   hasUser(username) { return this.usernames.includes(username); }
 
@@ -28,6 +33,27 @@ class Room {
       if (this.owner === username && !this.isEmpty()) {
         this.setOwner(this.usernames[0]);
       }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  // TODO
+  addBot() { }
+  removeBot() { }
+
+  // Game related
+
+  isInGame() { return this.game !== null; }
+  startGame() {
+    if (this.isFull() && !this.isInGame()) {
+      this.game = new Game({
+        roomname: this.roomname,
+        maxPlayers: this.maxPlayers
+      });
+      // TODO: Implement Game.init()
+      this.game.init();
       return true;
     } else {
       return false;

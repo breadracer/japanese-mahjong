@@ -7,7 +7,7 @@ import Room from './Room';
 import Game from './Game';
 
 class Gameboard extends React.Component {
-  // props: socket, logged username
+  // props: socket, loggedUser
 
   constructor(props) {
     super(props);
@@ -20,15 +20,17 @@ class Gameboard extends React.Component {
       onlineRooms: [], // Room: roomname, room size, current # of players, owner
       onlineUsers: [], // User: username, roomname
 
-      // In-room page (IN_ROOM)
+      // In-room page and In-game page (IN_ROOM, IN_GAME)
       roomname: null,
       inRoomUsers: [], // User: username
+      inRoomBots: [], // Bot: botname
       maxPlayers: null,
       owner: null,
-      chatInput: '',
-      chatRoom: [],
 
-      // Game page (IN_GAME)
+      // In-game page (IN_GAME)
+
+      // TODO: More on this later
+      game: '',
 
     };
 
@@ -48,11 +50,12 @@ class Gameboard extends React.Component {
       }
 
       // If user in-room, also need to remove the user from the room
+      // Note: Disconnection of a user does not impact a room's bots
       case messageTypes.PUSH_USER_DISCONNECT: {
         return this.setState(prevState => {
           let { username, roomname } = message.removedUser;
 
-          // If user is in-room
+          // If disconnected user is in-room
           if (roomname) {
             let prevRooms = [...prevState.onlineRooms];
             let { usernames, owner } = message.updatedRoom;
@@ -63,7 +66,7 @@ class Gameboard extends React.Component {
               if (room) {
                 room.usernames = usernames;
                 room.owner = owner;
-
+                // For users in the same room, game not started
                 if (this.state.status === userStatus.IN_ROOM &&
                   this.state.roomname === roomname) {
                   return {
@@ -73,6 +76,22 @@ class Gameboard extends React.Component {
                     inRoomUsers: usernames,
                     owner: owner
                   };
+                  // For users in the same room, game started
+                } else if (this.state.status === userStatus.IN_GAME &&
+                  this.state.roomname === roomname) {
+
+                  // TODO: In-game user quit, change it to robot
+                  return {
+                    onlineUsers: prevState.onlineUsers.filter(u =>
+                      u.username !== username),
+                    onlineRooms: prevRooms,
+                    inRoomUsers: usernames,
+                    // TODO: More on this later
+                    // inRoomBots: [...prevState.inRoomBots, username],
+                    owner: owner
+                  }
+
+                  // For all other users
                 } else {
                   return {
                     onlineUsers: prevState.onlineUsers.filter(u =>
@@ -84,7 +103,7 @@ class Gameboard extends React.Component {
                 console.log('Error: synchronization error');
               }
             } else {
-              // If that room is empty
+              // If that room is empty, remove that room
               return {
                 onlineUsers: prevState.onlineUsers.filter(u =>
                   u.username !== username),
@@ -92,7 +111,7 @@ class Gameboard extends React.Component {
               };
             }
           } else {
-            // If user is out-room
+            // If disconnected user is out-room
             return {
               onlineUsers: prevState.onlineUsers.filter(u =>
                 u.username !== username)
@@ -114,11 +133,12 @@ class Gameboard extends React.Component {
         if (message.isValid) {
           let { owner, roomname, maxPlayers, usernames } = message.newRoom;
           this.setState(prevState => {
-            // Validate that the owner is online, and let the owner join
             let prevUsers = [...prevState.onlineUsers];
             let user = prevUsers.find(u => u.username === owner);
+            // Validate that the owner is online, and let the owner join
             if (user) {
               user.roomname = message.newRoom.roomname;
+              // For pulled user
               if (user.username === this.props.loggedUser) {
                 return {
                   status: userStatus.IN_ROOM,
@@ -126,9 +146,11 @@ class Gameboard extends React.Component {
                   onlineUsers: [...prevUsers],
                   roomname,
                   inRoomUsers: usernames,
+                  inRoomBots: [], // Assume initially there is no bot
                   maxPlayers,
                   owner
                 }
+                // For all others
               } else {
                 return {
                   onlineRooms: [...prevState.onlineRooms, message.newRoom],
@@ -153,9 +175,11 @@ class Gameboard extends React.Component {
             let prevUsers = [...prevState.onlineUsers];
             let room = prevRooms.find(r => r.roomname === roomname);
             let user = prevUsers.find(u => u.username === username);
+            // Validate that the target user and room exist
             if (room && user) {
               room.usernames = [...usernames];
               user.roomname = roomname;
+              // For pulled user
               if (username === this.props.loggedUser) {
                 return {
                   status: userStatus.IN_ROOM,
@@ -163,9 +187,11 @@ class Gameboard extends React.Component {
                   onlineUsers: [...prevUsers],
                   roomname,
                   inRoomUsers: usernames,
+                  // Note: Assume bots are unchanged here
                   maxPlayers,
                   owner
                 };
+                // For other users in the same room
               } else if (this.state.status === userStatus.IN_ROOM &&
                 roomname === this.state.roomname) {
                 return {
@@ -173,6 +199,7 @@ class Gameboard extends React.Component {
                   onlineUsers: [...prevUsers],
                   inRoomUsers: usernames,
                 }
+                // For all others
               } else {
                 return {
                   onlineRooms: [...prevRooms],
@@ -197,13 +224,16 @@ class Gameboard extends React.Component {
             let prevUsers = [...prevState.onlineUsers];
             let room = prevRooms.find(r => r.roomname === roomname);
             let user = prevUsers.find(u => u.username === username);
+            // Validate that the target user and room exist
             if (room && user) {
               room.usernames = usernames;
               room.owner = owner;
               user.roomname = null;
+              // If room is empty after leaving, remove the room
               if (room.usernames.length === 0) {
                 prevRooms = prevRooms.filter(r => r.roomname !== roomname);
               }
+              // For pulled user
               if (username === this.props.loggedUser) {
                 return {
                   status: userStatus.OUT_ROOM,
@@ -213,9 +243,8 @@ class Gameboard extends React.Component {
                   inRoomUsers: [],
                   maxPlayers: null,
                   owner: null,
-                  chatRoom: [],
-                  chatInput: ''
                 };
+                // For other users in the same room
               } else if (this.state.status === userStatus.IN_ROOM &&
                 roomname === this.state.roomname) {
                 return {
@@ -224,6 +253,7 @@ class Gameboard extends React.Component {
                   inRoomUsers: usernames,
                   owner
                 };
+                // For all others
               } else {
                 return {
                   onlineRooms: [...prevRooms],
@@ -235,6 +265,45 @@ class Gameboard extends React.Component {
               return {};
             }
           });
+        }
+        return;
+      }
+
+      // TODO
+      case messageTypes.PUSH_ADD_BOT: return;
+      case messageTypes.PUSH_REMOVE_BOT: return;
+
+      case messageTypes.PUSH_START_GAME: {
+        if (message.isValid) {
+          let { roomname } = message.updatedRoom;
+          this.setState(prevState => {
+            let prevRooms = [...prevState.onlineRooms];
+            let room = prevRooms.find(r => r.roomname === roomname);
+            if (room) {
+              room.isInGame = true;
+              // For all others
+              return { onlineRooms: [...prevRooms] };
+            } else {
+              console.log('Error: room does not exist');
+              return {};
+            }
+          });
+        }
+        return;
+      }
+
+      case messageTypes.PUSH_INIT_GAME: {
+        // TODO: More on this later
+        let { roomname, game } = message;
+        // For users in the target room
+        if (this.state.status === userStatus.IN_ROOM &&
+          this.state.roomname === roomname) {
+          this.setState({
+            status: userStatus.IN_GAME,
+            game
+          });
+        } else {
+          console.log('Error: message delivered to the wrong destination');
         }
         return;
       }
@@ -303,14 +372,13 @@ class Gameboard extends React.Component {
           inRoomUsers={this.state.inRoomUsers}
           maxPlayers={this.state.maxPlayers}
           owner={this.state.owner}
-          chatRoom={this.state.chatRoom}
-          chatInput={this.state.chatInput}
           handleLogout={this.handleLogout}
           sendMessage={this.sendMessage}
         />;
       case userStatus.IN_GAME:
         return <Game
           loggedUser={this.props.loggedUser}
+          game={this.state.game}
           sendMessage={this.sendMessage}
         />;
       default:
