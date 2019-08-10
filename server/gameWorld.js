@@ -125,6 +125,8 @@ class GameWorld {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
       }
+
+      
     }
   }
 
