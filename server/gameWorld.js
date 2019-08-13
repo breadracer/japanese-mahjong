@@ -108,7 +108,7 @@ class GameWorld {
       case messageTypes.PULL_START_GAME: {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isFull() && !room.isInGame()) {
-          // TODO: Init game data in the target room
+          // Initialize game data in the target room
           room.startGame();
           this.sendToAll(messageTypes.PUSH_START_GAME, {
             isValid: true,
@@ -116,17 +116,20 @@ class GameWorld {
               roomname: room.roomname
             }
           });
+          // Push game data to the client-side room
           this.sendToRoom(messageTypes.PUSH_INIT_GAME, {
-            // TODO: Push game data to the room
             roomname: room.roomname,
-            game: JSON.stringify(room.game)
+            game: room.game.getGameStateMessage()
           }, room.roomname);
         } else {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
       }
 
-      
+      case messageTypes.PULL_UPDATE_GAME: {
+
+      }
+
     }
   }
 

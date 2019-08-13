@@ -1,4 +1,5 @@
 const Game = require('./game');
+const { winds } = require('./constants');
 
 class Room {
   constructor(roomname, maxPlayers) {
@@ -49,8 +50,10 @@ class Room {
   startGame() {
     if (this.isFull() && !this.isInGame()) {
       this.game = new Game({
-        roomname: this.roomname,
-        maxPlayers: this.maxPlayers
+        maxPlayers: this.maxPlayers,
+        endRoundWind: winds.SOUTH, // TODO: More on this later
+        usernames: [...this.usernames],
+        botnames: [...this.botnames],
       });
       // TODO: Implement Game.init()
       this.game.init();

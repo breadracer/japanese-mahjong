@@ -29,8 +29,15 @@ class Gameboard extends React.Component {
 
       // In-game page (IN_GAME)
 
-      // TODO: More on this later
-      game: '',
+      // TODO: Filter out some of the game data later
+      roundWind: 0,
+      roundWindCounter: 0,
+      liveWall: [],
+      deadWall: [],
+      kanCounter: 0,
+      turnCounter: 0,
+      // name, isBot, seatWind, hand (array), discardPile (array), score
+      playersData: [],
 
     };
 
@@ -295,12 +302,21 @@ class Gameboard extends React.Component {
       case messageTypes.PUSH_INIT_GAME: {
         // TODO: More on this later
         let { roomname, game } = message;
+        let playersData = game.playersData;
+        let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
+        let { roundWind, roundWindCounter } = game.globalData;
         // For users in the target room
         if (this.state.status === userStatus.IN_ROOM &&
           this.state.roomname === roomname) {
           this.setState({
             status: userStatus.IN_GAME,
-            game
+            liveWall,
+            deadWall,
+            playersData,
+            kanCounter,
+            turnCounter,
+            roundWind,
+            roundWindCounter
           });
         } else {
           console.log('Error: message delivered to the wrong destination');
@@ -379,6 +395,15 @@ class Gameboard extends React.Component {
         return <Game
           loggedUser={this.props.loggedUser}
           game={this.state.game}
+
+          liveWall={this.state.liveWall}
+          deadWall={this.state.deadWall}
+          roundWind={this.state.roundWind}
+          roundWindCounter={this.state.roundWindCounter}
+          kanCounter={this.state.kanCounter}
+          turnCounter={this.state.turnCounter}
+          playersData={this.state.playersData}
+
           sendMessage={this.sendMessage}
         />;
       default:
