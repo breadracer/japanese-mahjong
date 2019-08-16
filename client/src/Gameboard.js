@@ -30,6 +30,7 @@ class Gameboard extends React.Component {
       // In-game page (IN_GAME)
 
       // TODO: Filter out some of the game data later
+      // Game data
       roundWind: 0,
       roundWindCounter: 0,
       liveWall: [],
@@ -39,6 +40,8 @@ class Gameboard extends React.Component {
       // name, isBot, seatWind, hand (array), discardPile (array), score
       playersData: [],
 
+      // Option data
+      options: [],
     };
 
     // Set the onmessage event handler
@@ -299,14 +302,15 @@ class Gameboard extends React.Component {
         return;
       }
 
-      case messageTypes.PUSH_INIT_GAME: {
+      case messageTypes.PUSH_UPDATE_GAME: {
         // TODO: More on this later
-        let { roomname, game } = message;
+        let { roomname, game, options } = message;
         let playersData = game.playersData;
         let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
         let { roundWind, roundWindCounter } = game.globalData;
         // For users in the target room
-        if (this.state.status === userStatus.IN_ROOM &&
+        if ((this.state.status === userStatus.IN_ROOM ||
+          this.state.status === userStatus.IN_GAME) &&
           this.state.roomname === roomname) {
           this.setState({
             status: userStatus.IN_GAME,
@@ -316,7 +320,8 @@ class Gameboard extends React.Component {
             kanCounter,
             turnCounter,
             roundWind,
-            roundWindCounter
+            roundWindCounter,
+            options
           });
         } else {
           console.log('Error: message delivered to the wrong destination');

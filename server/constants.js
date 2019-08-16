@@ -5,17 +5,35 @@ module.exports.constants = {
 
 module.exports.winds = { EAST: 0, SOUTH: 1, WEST: 2, NORTH: 3 };
 
+module.exports.serverPhase = {
+  WAIT_DISCARD: 'WAIT_DISCARD',
+  WAIT_OPTION: 'WAIT_OPTION',
+  PROCESS_ACTION: 'PROCESS_ACTION',
+  // TODO: More on this later
+}
+
 module.exports.actionTypes = {
-  DISCARD: 'DISCARD',
+  OPTION_CHII: 'OPTION_CHII',
+  OPTION_PON: 'OPTION_PON',
+  OPTION_KAN_OPEN: 'OPTION_KAN_OPEN',
+  OPTION_RON: 'OPTION_RON',
 
-  CHII: 'CHII',
-  PON: 'PON',
-  KAN: 'KAN',
+  OPTION_DISCARD: 'OPTION_DISCARD',
 
-  RIICHI: 'RIICHI',
+  OPTION_KAN_CLOSED: 'OPTION_KAN_CLOSED',
+  OPTION_RIICHI: 'OPTION_RIICHI',
+  OPTION_TSUMO: 'OPTION_TSUMO',
 
-  RON: 'RON',
-  TSUMO: 'TSUMO',
+  ACTION_CHII: 'ACTION_CHII',
+  ACTION_PON: 'ACTION_PON',
+  ACTION_KAN_OPEN: 'ACTION_KAN_OPEN',
+  ACTION_RON: 'ACTION_RON',
+
+  ACTION_DISCARD: 'ACTION_DISCARD',
+  
+  ACTION_KAN_CLOSED: 'ACTION_KAN_CLOSED',
+  ACTION_RIICHI: 'ACTION_RIICHI',
+  ACTION_TSUMO: 'ACTION_TSUMO',
 
   // Three-player-game's unique action currently not available
 };
@@ -110,7 +128,7 @@ module.exports.messageTypes = {
 
 
   // IN_GAME ONLY
-  
+
   // Update room game data
   // game
   PUSH_INIT_GAME: 'PUSH_INIT_GAME',

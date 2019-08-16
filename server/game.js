@@ -1,25 +1,33 @@
 // NOTE: This code is temporarily only designed for 4p games
 // For further compatability of 3p games, add child classes for the Game class
 
-const { actionTypes, tileTypes, winds } = require('./constants');
+const { actionTypes, tileTypes, serverPhase, winds } = require('./constants');
 
 // Array of numbers from 0 to 135
 const fourPlayersTiles = [...Array(136).keys()];
 const threePlayersTiles = [] // Currently unavailable
 
-class Player {
-  constructor({ name, isBot, seatWind }) {
-    this.name = name;
-    this.isBot = isBot;
+function Group({ type, tiles }) {
+  this.type = type;
+  this.tiles = tiles;
+}
 
-    this.seatWind = seatWind;
-    this.hand = [];
-    this.openGroups = []; // Array of: groups: type, tiles
-    this.discardPile = [];
+function Player({ name, isBot, seatWind }) {
+  this.name = name;
+  this.isBot = isBot;
 
-    this.score = 0;
-  }
+  this.seatWind = seatWind;
+  this.drawnTile = null;
+  this.hand = [];
+  this.openGroups = []; // Array of: groups: type, tiles
+  this.discardPile = [];
 
+  this.score = 0;
+}
+
+function Option({ type, seatWind }) {
+  this.type = type;
+  this.seatWind = seatWind;
 }
 
 class Game {
@@ -44,17 +52,117 @@ class Game {
     }
     // From EAST to NORTH (or WEST)
     this.playersData = [];
+
+    // TODO?: Tempted feature
     this.phase = '';
+
+    // Store the options to be sent per modification to the Game object
+    // Array of: options: type, seatWind, ...
+    this.optionsBuffer = [];
+
+    // Queue for the waiting incoming actions
+    // Arrays of: options: type, seatWind, ...
+    this.primaryOptions = [];
+    this.secondaryOptions = [];
+    this.tertiaryOptions = [];
   }
 
-  // Main action handler
+
+  // Main action handler, store the options to be sent
   transform(action) {
     let { type, data } = action;
-    switch(type) {
-      
+    switch (type) {
+
     }
   }
 
+
+  // Main option generator
+  generateOption(type, seatWind, tile) {
+    let { hand, openGroups, discardPile } = this.playersData[seatWind];
+    switch (type) {
+      case actionTypes.OPTION_DISCARD: {
+        return null;
+      }
+
+      case actionTypes.OPTION_KAN_CLOSED: {
+        return null;
+      }
+
+      case actionTypes.OPTION_RIICHI: {
+        return null;
+      }
+
+      case actionTypes.OPTION_TSUMO: {
+        return null;
+      }
+
+      case actionTypes.OPTION_CHII: {
+        return null;
+      }
+      
+      case actionTypes.OPTION_PON: {
+
+        return null;
+      }
+
+      case actionTypes.OPTION_KAN_OPEN: {
+        return null;
+      }
+
+      case actionTypes.OPTION_RON: {
+        return null;        
+      }
+    }
+  }
+
+
+  // Option combiners
+  generateDrawOptions(drawSeatWind, tile) {
+    let optionTypes = [
+      actionTypes.OPTION_KAN_CLOSED,
+      actionTypes.OPTION_RIICHI,
+      actionTypes.OPTION_TSUMO
+    ];
+    return optionTypes.map(type =>
+      this.generateOption(type, drawSeatWind, tile)
+    ).filter(option => option !== null);
+  }
+
+  generateCallOptions(discardSeatWind, tile) {
+
+  }
+
+
+  // Basic operations
+  drawLiveWall(seatWind) {
+    // Assume liveWall is not []
+    let tile = this.roundData.liveWall.shift();
+    this.playersData[seatWind].drawnTile = tile;
+    return tile;
+  }
+
+  drawDeadWall(seatWind) {
+
+  }
+
+  discard(seatWind, tile) {
+
+  }
+
+  // Info message generator
+  getGameboardInfo() {
+    // TODO: More on this later
+    return this;
+  }
+
+  // Option message generator
+  getOptionsBuffer() {
+    return this.optionsBuffer;
+  }
+
+
+  // Game lifecycle functions
   init() {
     // Setup initial player sequence
     let counter = 0;
@@ -75,12 +183,19 @@ class Game {
   }
 
   startNewRound() {
-    // Reset the walls
-    let shuffledTiles = shuffle(fourPlayersTiles);
+    let shuffledTiles;
 
     // This is compatible only to 4p now
-    this.roundData.liveWall = shuffledTiles.slice(52, 122);
-    this.roundData.deadWall = shuffledTiles.slice(122, 136);
+    if (this.config.maxPlayers === 4) {
+      // Reset the walls
+      shuffledTiles = shuffle(fourPlayersTiles);
+      this.roundData.liveWall = shuffledTiles.slice(52, 122);
+      this.roundData.deadWall = shuffledTiles.slice(122, 136);
+    } else if (this.config.maxPlayers === 3) {
+      throw new Error('Error: 3-player currently unavailable');
+    } else {
+      throw new Error('Error: unavailble number of players');
+    }
 
     // Reset kan counter
     this.roundData.kanCounter = 0;
@@ -108,14 +223,18 @@ class Game {
       player.hand = shuffledTiles.slice(index * 13, (index + 1) * 13);
     });
 
-    // TODO: Reset phase
+    // Reset optionsBuffer
+    this.optionsBuffer = [];
+
+    // Resolve first player's options
+    let turnCounter = this.roundData.turnCounter;
+    let drawnTile = this.drawLiveWall(turnCounter);
+    this.optionBuffer = this.generateDrawOptions(turnCounter, drawnTile);
+
+    // TODO?: Reset phase
+    this.phase;
   }
 
-  // State message generator
-  getGameStateMessage() {
-    // TODO: More on this later
-    return this;
-  }
 }
 
 // Fisher-Yates Shuffle

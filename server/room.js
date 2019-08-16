@@ -45,8 +45,26 @@ class Room {
   removeBot() { }
 
   // Game related
-
   isInGame() { return this.game !== null; }
+
+  getGameInfo() {
+    return this.game.getGameboardInfo();
+  }
+
+  getPlayersData() {
+    return this.game.playersData;
+  }
+
+  // If action is passed, transform then return the buffer
+  // Otherwise, return the buffer directly
+  resolveAction(action) {
+    if (action !== null) {
+      this.game.transform(action);
+    }
+    return this.game.getOptionsBuffer();
+  }
+
+  // Return the option generated for the 1st player
   startGame() {
     if (this.isFull() && !this.isInGame()) {
       this.game = new Game({
@@ -55,7 +73,6 @@ class Room {
         usernames: [...this.usernames],
         botnames: [...this.botnames],
       });
-      // TODO: Implement Game.init()
       this.game.init();
       return true;
     } else {

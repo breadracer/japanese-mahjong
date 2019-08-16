@@ -19,6 +19,7 @@ class Game extends React.Component {
         <p>Score: {player.score}</p>
         <p>Seatwind: {player.seatWind}</p>
         <p>Hand: {tilesToStringSorted(player.hand)}</p>
+        {/* <p>Drawn tile: {tilesToString([player.drawnTile])}</p> */}
         <p>Discard pile: {tilesToString(player.discardPile)}</p>
       </div>
     ));

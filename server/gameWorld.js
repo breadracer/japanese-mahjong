@@ -110,45 +110,62 @@ class GameWorld {
         if (room && room.isFull() && !room.isInGame()) {
           // Initialize game data in the target room
           room.startGame();
+
           this.sendToAll(messageTypes.PUSH_START_GAME, {
             isValid: true,
             updatedRoom: {
               roomname: room.roomname
             }
           });
-          // Push game data to the client-side room
-          this.sendToRoom(messageTypes.PUSH_INIT_GAME, {
-            roomname: room.roomname,
-            game: room.game.getGameStateMessage()
-          }, room.roomname);
+
+          // this.sendToRoom(messageTypes.PUSH_INIT_GAME, {
+          //   roomname: room.roomname,
+          //   game: room.getGameInfo(),
+          //   options: room.resolveAction(null),
+          // }, room.roomname);
+
+          // First, push game data to all users.
+          let users = room.getPlayersData().filter(player => !player.isBot);
+          let bots = room.getPlayersData().filter(player => player.isBot);
+          users.forEach((player, seatWind) => {
+            this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+              roomname: room.roomname,
+              game: room.getGameInfo(),
+              options: room.resolveAction(null).filter(
+                option => option.seatWind === seatWind)
+            }, player.name);
+          });
+
+          // Then, if before the user there are bots to move, let them
+          // move, transfer the game, and push game and option data to
+          // all one bot by one bot.
+
+
+
         } else {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
       }
 
       case messageTypes.PULL_UPDATE_GAME: {
+        let room = this.getRoomByRoomname(message.roomname);
+        if (room && room.isInGame()) {
+          // TODO:
+          // First, push game and option data to all users
 
+          // If the next player/players is/are bots,
+          // let them move one bot by one bot and push data to all for each move
+
+        } else {
+          this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,
+            { isValid: false }, room.roomname);
+        }
       }
 
     }
   }
 
   // Common message helper functions
-
-  // syncGameWorldToAll() {
-  //   this.sendToAll(messageTypes.PUSH_ALL_ROOMS,
-  //     this.getOnlineRoomsMessage());
-  //   this.sendToAll(messageTypes.PUSH_ALL_USERS,
-  //     this.getOnlineUsersMessage());
-  // }
-
-  // syncGameWorldToOne(username) {
-  //   this.sendToOne(messageTypes.PUSH_ALL_ROOMS,
-  //     this.getOnlineRoomsMessage(), username);
-  //   this.sendToOne(messageTypes.PUSH_ALL_USERS,
-  //     this.getOnlineUsersMessage(), username);
-  // }
-
   getOnlineRoomsMessage() {
     let onlineRooms = this.getAllRooms().map(r => ({
       roomname: r.roomname,
