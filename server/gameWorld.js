@@ -15,6 +15,11 @@ const Game = require('./game');
 
 const { messageTypes } = require('./constants');
 
+// Helper function for async 'sleeping' between updates of bot moves
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 class GameWorld {
   constructor() {
     this.sessions = {}; // username -> username, socket, isAlive, roomname
@@ -22,7 +27,7 @@ class GameWorld {
   }
 
   // Main message handler
-  handleMessage({ type, message }, username) {
+  async handleMessage({ type, message }, username) {
     // Assume username's session exists
     switch (type) {
       case messageTypes.PULL_ALL_ROOMS: {
@@ -102,15 +107,39 @@ class GameWorld {
       }
 
       // TODO
-      case messageTypes.PULL_ADD_BOT: return;
-      case messageTypes.PULL_REMOVE_BOT: return;
+      case messageTypes.PULL_ADD_BOT: {
+        // if (this.hasRoom(message.roomname) &&
+        //   this.getRoomByRoomname(message.roomname).addBot(botType)) {
+        //   let room = this.getRoomByRoomname(message.roomname);
+        //   this.sendToAll(messageTypes.PUSH_ADD_BOT, {
+        //     isValid: true,
+        //     updatedRoom: {
+        //       roomname: room.roomname,
+        //       usernames: room.usernames,
+        //       botnames: room.botnames,
+        //       maxPlayers: room.maxPlayers,
+        //       owner: room.owner,
+        //     },
+        //     updatedBot: { botType, roomname: room.roomname }
+        //   });
+        // } else {
+        //   this.sendToAll(messageTypes.PUSH_ADD_BOT, { isValid: false });
+        // }
+        return;
+      }
 
+      case messageTypes.PULL_REMOVE_BOT: {
+        return;
+      }
+    
       case messageTypes.PULL_START_GAME: {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isFull() && !room.isInGame()) {
           // Initialize game data in the target room
+          // Generate options for all user and bot players (1st turn)
           room.startGame();
 
+          // Notify the world the target room is in game
           this.sendToAll(messageTypes.PUSH_START_GAME, {
             isValid: true,
             updatedRoom: {
@@ -118,15 +147,12 @@ class GameWorld {
             }
           });
 
-          // this.sendToRoom(messageTypes.PUSH_INIT_GAME, {
-          //   roomname: room.roomname,
-          //   game: room.getGameInfo(),
-          //   options: room.resolveAction(null),
-          // }, room.roomname);
-
-          // First, push game data to all users.
-          let users = room.getPlayersData().filter(player => !player.isBot);
-          let bots = room.getPlayersData().filter(player => player.isBot);
+          // First, push game data and options to all user players.
+          // Since the first option is the draw option, only the first
+          // mover will receive valid options
+          let players = room.getPlayersData(); // DO NOT MODIFY
+          let users = players.filter(player => !player.isBot);
+          let bots = players.filter(player => player.isBot);
           users.forEach((player, seatWind) => {
             this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
               roomname: room.roomname,
@@ -136,11 +162,60 @@ class GameWorld {
             }, player.name);
           });
 
-          // Then, if before the user there are bots to move, let them
-          // move, transfer the game, and push game and option data to
-          // all one bot by one bot.
+          // Then, if the first moving player is bot, let it move first
+          // This loop will continue until the first user player can make
+          // an active response to an option (draw or call)
+          let turnCounter = room.getTurnCounter();
+          while (players[turnCounter].isBot) {
+            let bot = players[turnCounter];
+            // =================================================================
+            // TODO
+            // First, 'sleep' a while
+            await sleep(4000);
+
+            // Second, figure out bot's move based on the draw options
+
+            // NOTE: THE FOLLOWING CODE WILL BE SHARED BY USER ACTION HANDLING
+            // Then, generate and push all game data and options to the users
 
 
+            // Handle other players' call options upon the following cases:
+            // Case 1: only users receive call options
+            //    In this case, break out the loop since the upcoming
+            //    PULL_UPDATE_GAME will be handled by handleMessage() decently
+
+            // Case 2: only bots receive call options
+            //    This case is also easy. Just figure out the bot's move here
+            //    and push the new data and options, continuing the loop
+
+            // Case 3: users and bots both receive call options, and the
+            // dominant option come from the bots
+            //    Decide whether the bots will behave actively upon the option.
+            //    If so, repeat Case 2. Otherwise, behave like Case 1.
+            //    i.e. If bot choose to actively act, directly send the
+            //    outcome game data to the users
+
+            // Case 4: users and bots both receive call options, and the
+            // dominant option come from the users
+            //    First decide whether bots will act actively, then push
+            //    the options to the users like Case 1
+            //    i.e. The true outcome will depend on both users' moves
+            //    and the bots' move
+
+            // Case 5: users and bots both receive call options, and dominant
+            // options are shared among users and bots
+            //    This happens only for multiple RONs. This case is treated
+            //    in the same way as in Case 4
+
+            // Case 6: there is no call options generated
+            //    Do nothing, just continue the loop
+
+
+            // Lastly, update the turn counter. If still bot, continue loop
+            turnCounter = room.getTurnCounter();
+            // End of this bots' turn. End of TODO
+            // =================================================================
+          }
 
         } else {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
@@ -298,5 +373,6 @@ class GameWorld {
     }
   }
 }
+
 
 module.exports = new GameWorld();

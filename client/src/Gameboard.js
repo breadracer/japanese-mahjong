@@ -391,6 +391,7 @@ class Gameboard extends React.Component {
           loggedUser={this.props.loggedUser}
           roomname={this.state.roomname}
           inRoomUsers={this.state.inRoomUsers}
+          inRoomBots={this.state.inRoomBots}
           maxPlayers={this.state.maxPlayers}
           owner={this.state.owner}
           handleLogout={this.handleLogout}

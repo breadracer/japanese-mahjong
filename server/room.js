@@ -51,6 +51,10 @@ class Room {
     return this.game.getGameboardInfo();
   }
 
+  getTurnCounter() {
+    return this.game.roundData.turnCounter;
+  }
+
   getPlayersData() {
     return this.game.playersData;
   }

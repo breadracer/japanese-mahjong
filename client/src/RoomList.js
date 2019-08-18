@@ -52,20 +52,24 @@ class RoomList extends React.Component {
 
   render() {
     console.log('RoomList rendered');
+    
     const roomList = this.props.onlineRooms.map((r, i) =>
       <li key={i}>
         <span>
           <strong>{r.roomname} </strong>
-          {`${r.usernames.length}/${r.maxPlayers} owner: ${r.owner} ` +
-            `members: ${r.usernames.join()} `}
+          {`${r.usernames.length + r.botnames.length}/${
+            r.maxPlayers} owner: ${r.owner} ` + `members: ${
+            r.usernames.join()} `}
         </span>
         <button onClick={this.handleJoinRoom.bind(this, r.roomname)}>
           Join</button>
       </li>);
+
     const userList = this.props.onlineUsers.map((u, i) => <li key={i}>{
       `${u.username} ${u.roomname ?
         'room: ' + u.roomname : 'out of room'}`
     }</li>);
+
     return (
       <div>
         <h1>Welcome to the roomlist page, {this.props.loggedUser}.</h1>

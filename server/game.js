@@ -1,7 +1,7 @@
 // NOTE: This code is temporarily only designed for 4p games
 // For further compatability of 3p games, add child classes for the Game class
 
-const { actionTypes, tileTypes, serverPhase, winds } = require('./constants');
+const { actionTypes, tileTypes, serverPhases, winds } = require('./constants');
 
 // Array of numbers from 0 to 135
 const fourPlayersTiles = [...Array(136).keys()];
@@ -25,9 +25,10 @@ function Player({ name, isBot, seatWind }) {
   this.score = 0;
 }
 
-function Option({ type, seatWind }) {
+function Option({ type, seatWind, data }) {
   this.type = type;
   this.seatWind = seatWind;
+  this.data = data;
 }
 
 class Game {
@@ -49,36 +50,76 @@ class Game {
       deadWall: [], // length: 14 (4p)
       kanCounter: 0, // Indicator for doras and the position of haiteihai
       turnCounter: 0,  // Indicator for the next moving player, start from EAST
+
+
     }
     // From EAST to NORTH (or WEST)
-    this.playersData = [];
+    this.playersData = Array(maxPlayers);
 
-    // TODO?: Tempted feature
-    this.phase = '';
+    this.phase = serverPhases.INITIALIZING_ROUND;
 
     // Store the options to be sent per modification to the Game object
-    // Array of: options: type, seatWind, ...
-    this.optionsBuffer = [];
+    // Array of Arrays of: options: type, seatWind, data
+    // Start from EAST
+    this.optionsBuffer = Array(maxPlayers).fill([]);
 
-    // Queue for the waiting incoming actions
-    // Arrays of: options: type, seatWind, ...
-    this.primaryOptions = [];
-    this.secondaryOptions = [];
-    this.tertiaryOptions = [];
+    // Prioritized queues for the waiting incoming call actions
+    this.callOptionWaitlist = {
+      // Start from EAST
+      // Array of options: type, seatWind, data
+      primary: Array(maxPlayers), // RON
+      secondary: Array(maxPlayers), // PON or KAN_OPEN_CALL
+      tertiary: Array(maxPlayers) // CHII
+    }
+
   }
 
 
   // Main action handler, store the options to be sent
   transform(action) {
-    let { type, data } = action;
+    let { type, seatWind, data } = action;
     switch (type) {
+      case actionTypes.ACTION_DISCARD: {
+        break;
+      }
 
+      case actionTypes.ACTION_KAN_CLOSED: {
+        break;
+      }
+
+      case actionTypes.ACTION_KAN_OPEN_DRAW: {
+        break;
+      }
+
+      case actionTypes.ACTION_RIICHI: {
+        break;
+      }
+
+      case actionTypes.ACTION_TSUMO: {
+        break;
+      }
+
+      case actionTypes.ACTION_CHII: {
+        break;
+      }
+
+      case actionTypes.ACTION_PON: {
+        break;
+      }
+
+      case actionTypes.ACTION_KAN_OPEN_CALL: {
+        break;
+      }
+
+      case actionTypes.ACTION_RON: {
+        break;
+      }
     }
   }
 
 
-  // Main option generator
-  generateOption(type, seatWind, tile) {
+  // Main option generator units
+  generateOption(type, seatWind, triggerTile) {
     let { hand, openGroups, discardPile } = this.playersData[seatWind];
     switch (type) {
       case actionTypes.OPTION_DISCARD: {
@@ -87,6 +128,10 @@ class Game {
 
       case actionTypes.OPTION_KAN_CLOSED: {
         return null;
+      }
+
+      case actionTypes.OPTION_KAN_OPEN_DRAW: {
+        break;
       }
 
       case actionTypes.OPTION_RIICHI: {
@@ -100,24 +145,24 @@ class Game {
       case actionTypes.OPTION_CHII: {
         return null;
       }
-      
+
       case actionTypes.OPTION_PON: {
 
         return null;
       }
 
-      case actionTypes.OPTION_KAN_OPEN: {
+      case actionTypes.OPTION_KAN_OPEN_CALL: {
         return null;
       }
 
       case actionTypes.OPTION_RON: {
-        return null;        
+        return null;
       }
     }
   }
 
 
-  // Option combiners
+  // Main option generators
   generateDrawOptions(drawSeatWind, tile) {
     let optionTypes = [
       actionTypes.OPTION_KAN_CLOSED,
@@ -130,6 +175,16 @@ class Game {
   }
 
   generateCallOptions(discardSeatWind, tile) {
+
+  }
+
+
+  // Bot move generators
+  generateBotDrawAction(seatWind) {
+
+  }
+
+  generateBotCallAction(seatWind) {
 
   }
 
@@ -148,6 +203,14 @@ class Game {
 
   discard(seatWind, tile) {
 
+  }
+
+
+  // Phase changer
+  changePhase(nextPhase) {
+    let prevPhase = this.phase;
+    this.phase = nextPhase;
+    console.log(`Server phase change ${prevPhase} -> ${nextPhase}`);
   }
 
   // Info message generator
@@ -183,6 +246,9 @@ class Game {
   }
 
   startNewRound() {
+    // Set phase
+    this.changePhase(serverPhases.INITIALIZING_ROUND);
+
     let shuffledTiles;
 
     // This is compatible only to 4p now
@@ -224,17 +290,17 @@ class Game {
     });
 
     // Reset optionsBuffer
-    this.optionsBuffer = [];
+    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
 
-    // Resolve first player's options
+    // Resolve first turn's options
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
-    this.optionBuffer = this.generateDrawOptions(turnCounter, drawnTile);
+    this.optionBuffer[turnCounter] = this.generateDrawOptions(
+      turnCounter, drawnTile);
 
-    // TODO?: Reset phase
-    this.phase;
+    // Set phase
+    this.changePhase(serverPhases.WAITING_DRAW_ACTION);
   }
-
 }
 
 // Fisher-Yates Shuffle
