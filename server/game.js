@@ -7,7 +7,7 @@ const { actionTypes, tileTypes, serverPhases, winds } = require('./constants');
 const fourPlayersTiles = [...Array(136).keys()];
 const threePlayersTiles = [] // Currently unavailable
 
-function Group({ type, tiles }) {
+function Group(type, tiles) {
   this.type = type;
   this.tiles = tiles;
 }
@@ -17,15 +17,19 @@ function Player({ name, isBot, seatWind }) {
   this.isBot = isBot;
 
   this.seatWind = seatWind;
+
   this.drawnTile = null;
+  this.forbiddenTiles = []; // Disable call swapping (Kuikae)
+
   this.hand = [];
+  // NOTE: openGroups array is ordered by the time of formation
   this.openGroups = []; // Array of: groups: type, tiles
   this.discardPile = [];
 
   this.score = 0;
 }
 
-function Option({ type, seatWind, data }) {
+function Option(type, seatWind, data) {
   this.type = type;
   this.seatWind = seatWind;
   this.data = data;
@@ -79,7 +83,12 @@ class Game {
   transform(action) {
     let { type, seatWind, data } = action;
     switch (type) {
+      // data: tile
       case actionTypes.ACTION_DISCARD: {
+        
+
+        // TODO: For last discard, end the turn here
+
         break;
       }
 
@@ -122,39 +131,54 @@ class Game {
   generateOption(type, seatWind, triggerTile) {
     let { hand, openGroups, discardPile } = this.playersData[seatWind];
     switch (type) {
+      // DRAW OPTIONS
+      // data: forbiddenTiles: []
       case actionTypes.OPTION_DISCARD: {
-        return null;
+        return new Option(type, seatWind, {
+          forbiddenTiles: this.playersData[seatWind].forbiddenTiles
+        });
       }
 
+      // data: candidateTiles Array of arrays: [] (3 tiles)
       case actionTypes.OPTION_KAN_CLOSED: {
         return null;
       }
 
+      // data: candidateGroupIndex
+      // (the index of the group in player's openGroups array)
       case actionTypes.OPTION_KAN_OPEN_DRAW: {
-        break;
+        return null;
       }
 
+      // TODO: Design data format later
       case actionTypes.OPTION_RIICHI: {
         return null;
       }
 
+      // TODO: Design data format later
       case actionTypes.OPTION_TSUMO: {
         return null;
       }
 
+
+      // CALL OPTIONS
+      // data: candidateTiles Array of arrays: [] (2 tiles)
       case actionTypes.OPTION_CHII: {
         return null;
       }
 
+      // data: candidateTiles Array of arrays: [] (2 tiles)
       case actionTypes.OPTION_PON: {
 
         return null;
       }
 
+      // data: candidateTiles Array of arrays: [] (3 tiles)
       case actionTypes.OPTION_KAN_OPEN_CALL: {
         return null;
       }
 
+      // TODO: Design data format later
       case actionTypes.OPTION_RON: {
         return null;
       }
@@ -165,6 +189,8 @@ class Game {
   // Main option generators
   generateDrawOptions(drawSeatWind, tile) {
     let optionTypes = [
+      actionTypes.OPTION_DISCARD,
+      actionTypes.OPTION_KAN_OPEN_DRAW,
       actionTypes.OPTION_KAN_CLOSED,
       actionTypes.OPTION_RIICHI,
       actionTypes.OPTION_TSUMO
@@ -289,10 +315,7 @@ class Game {
       player.hand = shuffledTiles.slice(index * 13, (index + 1) * 13);
     });
 
-    // Reset optionsBuffer
-    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
-
-    // Resolve first turn's options
+    // Resolve first turn's options and reset optionsBuffer
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
     this.optionsBuffer[turnCounter] = this.generateDrawOptions(

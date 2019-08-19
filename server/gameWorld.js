@@ -11,7 +11,6 @@
 
 const Session = require('./session');
 const Room = require('./room');
-const Game = require('./game');
 
 const { messageTypes } = require('./constants');
 
@@ -173,8 +172,8 @@ class GameWorld {
               isValid: true,
               roomname: room.roomname,
               game: room.getGameInfo(),
-              options: room.resolveAction(null).filter(
-                option => option.seatWind === seatWind)
+              seatWind,
+              options: room.resolveAction(null)[seatWind]
             }, player.name);
           });
 
@@ -243,7 +242,9 @@ class GameWorld {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isInGame()) {
           // TODO:
-          // First, push game and option data to all users
+          // First, transform the game
+
+          // Second, push updated game and option data to all users
 
           // If the next player/players is/are bots,
           // let them move one bot by one bot and push data to all for each move

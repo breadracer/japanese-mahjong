@@ -40,7 +40,8 @@ class Gameboard extends React.Component {
       // name, isBot, seatWind, hand (array), discardPile (array), score
       playersData: [],
 
-      // Option data
+      // Player self data
+      seatWind: 0,
       options: [],
     };
 
@@ -333,7 +334,7 @@ class Gameboard extends React.Component {
       case messageTypes.PUSH_UPDATE_GAME: {
         // TODO: More on this later
         if (message.isValid) {
-          let { roomname, game, options } = message;
+          let { roomname, game, seatWind, options } = message;
           let playersData = game.playersData;
           let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
           let { roundWind, roundWindCounter } = game.globalData;
@@ -350,6 +351,7 @@ class Gameboard extends React.Component {
               turnCounter,
               roundWind,
               roundWindCounter,
+              seatWind,
               options
             });
           } else {
@@ -430,6 +432,7 @@ class Gameboard extends React.Component {
       case userStatus.IN_GAME:
         return <Game
           loggedUser={this.props.loggedUser}
+          roomname={this.state.roomname}
           game={this.state.game}
 
           liveWall={this.state.liveWall}
@@ -439,6 +442,9 @@ class Gameboard extends React.Component {
           kanCounter={this.state.kanCounter}
           turnCounter={this.state.turnCounter}
           playersData={this.state.playersData}
+
+          seatWind={this.state.seatWind}
+          options={this.state.options}
 
           sendMessage={this.sendMessage}
         />;

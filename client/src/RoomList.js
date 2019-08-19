@@ -58,7 +58,7 @@ class RoomList extends React.Component {
         <span>
           <strong>{r.roomname} </strong>
           {`${r.usernames.length + r.botnames.length}/${
-            r.maxPlayers} owner: ${r.owner} ` + `members: ${
+            r.maxPlayers} owner: ${r.owner} members: ${
             r.usernames.join()} `}
         </span>
         <button onClick={this.handleJoinRoom.bind(this, r.roomname)}>

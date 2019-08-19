@@ -1,4 +1,5 @@
 import React from 'react';
+import { actionTypes, messageTypes } from './constants';
 
 class Game extends React.Component {
   // props:
@@ -11,26 +12,68 @@ class Game extends React.Component {
     return true;
   }
 
+  handleDiscard = tile => {
+    // Assume the discard is valid
+    this.props.sendMessage(messageTypes.PULL_UPDATE_GAME, {
+      roomname: this.props.roomname,
+      action: {
+        type: actionTypes.ACTION_DISCARD,
+        seatWind: this.props.seatWind,
+        data: { tile }
+      }
+    });
+  }
+
   render() {
     console.log('Game rendered');
-    let playersList = this.props.playersData.map((player, i) => (
-      <div key={i}>
-        <h5>{player.name}'s data:</h5>
-        <p>Score: {player.score}</p>
-        <p>Seatwind: {player.seatWind}</p>
-        <p>Hand: {tilesToStringSorted(player.hand)}</p>
-        {/* <p>Drawn tile: {tilesToString([player.drawnTile])}</p> */}
-        <p>Discard pile: {tilesToString(player.discardPile)}</p>
-      </div>
-    ));
+
+    // Temporary option selectors
+    let discardOptionList = null;
+    let discardOption = this.props.options.filter(option =>
+      option.type === actionTypes.OPTION_DISCARD)[0];
+    if (discardOption !== undefined) {
+      let { data } = discardOption;
+      let playerSelf = this.props.playersData[this.props.seatWind];
+      let discardables = [...playerSelf.hand, playerSelf.drawnTile].filter(
+          tile => !data.forbiddenTiles.includes(tile));
+      discardOptionList = <div>
+        {discardables.map((tile, i) =>
+          <button key={i} onClick={this.handleDiscard.bind(this, tile)}>
+            {tilesToString([tile])}
+          </button>
+        )}</div>;
+    }
+
+
+    let playersList = <div style={{ display: 'flex' }}>
+      {this.props.playersData.map((player, i) => (
+        <div key={i} style={{ flex: 1 }}>
+          <h5>{player.name}'s data:</h5>
+          <p>Score: {player.score}</p>
+          <p>Seatwind: {player.seatWind}</p>
+          <p>Hand: {tilesToStringSorted(player.hand)}</p>
+          <p>Drawn tile: {player.drawnTile !== null ?
+            tilesToString([player.drawnTile]) : null}</p>
+          <p>Discard pile: {tilesToString(player.discardPile)}</p>
+          {this.props.seatWind === i ? discardOptionList : null}
+        </div>
+      ))}
+    </div>
+
     return (
-      <div>
+      <div style={{ margin: '50px' }}>
         <div>
           <h1>Welcome to the game page, {this.props.loggedUser}.</h1>
-          <h5>liveWall:</h5>
-          <p>{tilesToString(this.props.liveWall)}</p>
-          <h5>deadWall:</h5>
-          <p>{tilesToString(this.props.deadWall)}</p>
+          <div style={{ display: 'flex' }}>
+            <div>
+              <h5>liveWall:</h5>
+              <p>{tilesToString(this.props.liveWall)}</p>
+            </div>
+            <div>
+              <h5>deadWall:</h5>
+              <p>{tilesToString(this.props.deadWall)}</p>
+            </div>
+          </div>
         </div>
         <hr />
         {playersList}
