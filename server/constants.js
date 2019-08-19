@@ -14,9 +14,9 @@ module.exports.serverPhases = {
 }
 
 module.exports.botTypes = {
-  STUPID: 'STUPID',
-  EASY: 'EASY',
-  HARD: 'HARD',
+  STUPID: 'Idiot',
+  EASY: 'Random Guy',
+  HARD: 'Saki',
   // TODO: More types later
 };
 

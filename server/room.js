@@ -40,9 +40,26 @@ class Room {
     }
   }
 
-  // TODO
-  addBot() { }
-  removeBot() { }
+  // Note: The passed in botType is essentially the botname
+  hasBot(botname) { return this.botnames.includes(botname); }
+
+  addBot(botname) {
+    if (!this.isFull()) {
+      this.botnames.push(botname);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  removeBot(botname) {
+    if (this.hasBot(botname)) {
+      this.botnames.splice(this.botnames.indexOf(botname), 1);
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   // Game related
   isInGame() { return this.game !== null; }

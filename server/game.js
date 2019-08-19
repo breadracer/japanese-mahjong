@@ -295,7 +295,7 @@ class Game {
     // Resolve first turn's options
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
-    this.optionBuffer[turnCounter] = this.generateDrawOptions(
+    this.optionsBuffer[turnCounter] = this.generateDrawOptions(
       turnCounter, drawnTile);
 
     // Set phase

@@ -41,7 +41,7 @@ class RoomList extends React.Component {
 
   handleJoinRoom = roomname => {
     let room = this.props.onlineRooms.find(r => r.roomname === roomname);
-    if (room.usernames.length < room.maxPlayers) {
+    if (room.usernames.length + room.botnames.length < room.maxPlayers) {
       this.props.sendMessage(messageTypes.PULL_JOIN_ROOM, {
         roomname: room.roomname
       });

@@ -15,7 +15,7 @@ const Game = require('./game');
 
 const { messageTypes } = require('./constants');
 
-// Helper function for async 'sleeping' between updates of bot moves
+// Async 'sleep' between updates of bot moves
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -104,34 +104,49 @@ class GameWorld {
         } else {
           this.sendToAll(messageTypes.PUSH_EXIT_ROOM, { isValid: false });
         }
+        return;
       }
 
-      // TODO
+      // Note: The passed in botType is essentially the botname
       case messageTypes.PULL_ADD_BOT: {
-        // if (this.hasRoom(message.roomname) &&
-        //   this.getRoomByRoomname(message.roomname).addBot(botType)) {
-        //   let room = this.getRoomByRoomname(message.roomname);
-        //   this.sendToAll(messageTypes.PUSH_ADD_BOT, {
-        //     isValid: true,
-        //     updatedRoom: {
-        //       roomname: room.roomname,
-        //       usernames: room.usernames,
-        //       botnames: room.botnames,
-        //       maxPlayers: room.maxPlayers,
-        //       owner: room.owner,
-        //     },
-        //     updatedBot: { botType, roomname: room.roomname }
-        //   });
-        // } else {
-        //   this.sendToAll(messageTypes.PUSH_ADD_BOT, { isValid: false });
-        // }
+        if (this.hasRoom(message.roomname) &&
+          this.getRoomByRoomname(message.roomname).addBot(message.botType)) {
+          let room = this.getRoomByRoomname(message.roomname);
+          this.sendToAll(messageTypes.PUSH_ADD_BOT, {
+            isValid: true,
+            updatedRoom: {
+              roomname: room.roomname,
+              usernames: room.usernames,
+              botnames: room.botnames,
+              maxPlayers: room.maxPlayers,
+              owner: room.owner,
+            }
+          });
+        } else {
+          this.sendToAll(messageTypes.PUSH_ADD_BOT, { isValid: false });
+        }
         return;
       }
 
       case messageTypes.PULL_REMOVE_BOT: {
+        if (this.hasRoom(message.roomname) &&
+          this.getRoomByRoomname(message.roomname).removeBot(message.botname)) {
+          let room = this.getRoomByRoomname(message.roomname);
+          this.sendToAll(messageTypes.PUSH_REMOVE_BOT, {
+            isValid: true,
+            updatedRoom: {
+              roomname: room.roomname,
+              usernames: room.usernames,
+              botnames: room.botnames,
+              owner: room.owner
+            }
+          });
+        } else {
+          this.sendToAll(messageTypes.PUSH_REMOVE_BOT, { isValid: false });
+        }
         return;
       }
-    
+
       case messageTypes.PULL_START_GAME: {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isFull() && !room.isInGame()) {
@@ -155,6 +170,7 @@ class GameWorld {
           let bots = players.filter(player => player.isBot);
           users.forEach((player, seatWind) => {
             this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+              isValid: true,
               roomname: room.roomname,
               game: room.getGameInfo(),
               options: room.resolveAction(null).filter(
@@ -220,6 +236,7 @@ class GameWorld {
         } else {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
+        return;
       }
 
       case messageTypes.PULL_UPDATE_GAME: {
@@ -235,6 +252,7 @@ class GameWorld {
           this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,
             { isValid: false }, room.roomname);
         }
+        return;
       }
 
     }

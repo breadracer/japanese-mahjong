@@ -178,7 +178,8 @@ class Gameboard extends React.Component {
 
       case messageTypes.PUSH_JOIN_ROOM: {
         if (message.isValid) {
-          let { roomname, usernames, maxPlayers, owner } = message.updatedRoom;
+          let { roomname, usernames, botnames,
+            maxPlayers, owner } = message.updatedRoom;
           let { username } = message.updatedUser;
           this.setState(prevState => {
             let prevRooms = [...prevState.onlineRooms];
@@ -197,7 +198,7 @@ class Gameboard extends React.Component {
                   onlineUsers: [...prevUsers],
                   roomname,
                   inRoomUsers: usernames,
-                  // Note: Assume bots are unchanged here
+                  inRoomBots: botnames,
                   maxPlayers,
                   owner
                 };
@@ -279,9 +280,36 @@ class Gameboard extends React.Component {
         return;
       }
 
-      // TODO
-      case messageTypes.PUSH_ADD_BOT: return;
-      case messageTypes.PUSH_REMOVE_BOT: return;
+      // These two push messages essentially do the same thing
+      case messageTypes.PUSH_ADD_BOT:
+      case messageTypes.PUSH_REMOVE_BOT: {
+        if (message.isValid) {
+          let { roomname, botnames } = message.updatedRoom;
+          this.setState(prevState => {
+            let prevRooms = [...prevState.onlineRooms];
+            let room = prevRooms.find(r => r.roomname === roomname);
+            // Validate that the target room exist
+            if (room) {
+              room.botnames = [...botnames];
+              // For users in the same room
+              if (this.state.status === userStatus.IN_ROOM &&
+                roomname === this.state.roomname) {
+                return {
+                  onlineRooms: [...prevRooms],
+                  inRoomBots: botnames
+                }
+                // For all others
+              } else {
+                return { onlineRooms: [...prevRooms] };
+              }
+            } else {
+              console.log('Error: room does not exist');
+              return {};
+            }
+          });
+        }
+        return;
+      }
 
       case messageTypes.PUSH_START_GAME: {
         if (message.isValid) {
@@ -304,27 +332,29 @@ class Gameboard extends React.Component {
 
       case messageTypes.PUSH_UPDATE_GAME: {
         // TODO: More on this later
-        let { roomname, game, options } = message;
-        let playersData = game.playersData;
-        let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
-        let { roundWind, roundWindCounter } = game.globalData;
-        // For users in the target room
-        if ((this.state.status === userStatus.IN_ROOM ||
-          this.state.status === userStatus.IN_GAME) &&
-          this.state.roomname === roomname) {
-          this.setState({
-            status: userStatus.IN_GAME,
-            liveWall,
-            deadWall,
-            playersData,
-            kanCounter,
-            turnCounter,
-            roundWind,
-            roundWindCounter,
-            options
-          });
-        } else {
-          console.log('Error: message delivered to the wrong destination');
+        if (message.isValid) {
+          let { roomname, game, options } = message;
+          let playersData = game.playersData;
+          let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
+          let { roundWind, roundWindCounter } = game.globalData;
+          // For users in the target room
+          if ((this.state.status === userStatus.IN_ROOM ||
+            this.state.status === userStatus.IN_GAME) &&
+            this.state.roomname === roomname) {
+            this.setState({
+              status: userStatus.IN_GAME,
+              liveWall,
+              deadWall,
+              playersData,
+              kanCounter,
+              turnCounter,
+              roundWind,
+              roundWindCounter,
+              options
+            });
+          } else {
+            console.log('Error: message delivered to the wrong destination');
+          }
         }
         return;
       }

@@ -10,9 +10,9 @@ export const userStatus = {
 };
 
 export const botTypes = {
-  STUPID: 'STUPID',
-  EASY: 'EASY',
-  HARD: 'HARD',
+  STUPID: 'Idiot',
+  EASY: 'Random Guy',
+  HARD: 'Saki',
   // TODO: More types later
 };
 
