@@ -165,16 +165,16 @@ class GameWorld {
           // Since the first option is the draw option, only the first
           // mover will receive valid options
           let players = room.getPlayersData(); // DO NOT MODIFY
-          let users = players.filter(player => !player.isBot);
-          let bots = players.filter(player => player.isBot);
-          users.forEach((player, seatWind) => {
-            this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-              isValid: true,
-              roomname: room.roomname,
-              game: room.getGameInfo(),
-              seatWind,
-              options: room.resolveAction(null)[seatWind]
-            }, player.name);
+          players.forEach((player, seatWind) => {
+            if (!player.isBot) {
+              this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                isValid: true,
+                roomname: room.roomname,
+                game: room.getGameInfo(),
+                seatWind,
+                options: room.resolveAction(null)[seatWind]
+              }, player.name);
+            }
           });
 
           // Then, if the first moving player is bot, let it move first
@@ -188,11 +188,31 @@ class GameWorld {
             // First, 'sleep' a while
             await sleep(4000);
 
-            // Second, figure out bot's move based on the draw options
+            // Second, figure out bot's move based on the draw options, and
+            // generate new game data and call options
+            room.game.performBotDrawAction(turnCounter);
 
             // NOTE: THE FOLLOWING CODE WILL BE SHARED BY USER ACTION HANDLING
-            // Then, generate and push all game data and options to the users
+            // Then, push all game data and options to the users
 
+            // NOTE: Here there are two possibilities:
+            // Case 1: The previous bot draw did not generate any call option,
+            // and the next player is an user, who will receive a draw option,
+            // which means there will be no call options needed to be handled,
+            // and the loop will break out in this iteration
+            // Case 2: The previous bot draw did generate some call options,
+            // which will be handled later in the iteration
+            players.forEach((player, seatWind) => {
+              if (!player.isBot) {
+                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                  isValid: true,
+                  roomname: room.roomname,
+                  game: room.getGameInfo(),
+                  seatWind,
+                  options: room.resolveAction(null)[seatWind]
+                }, player.name);
+              }
+            });
 
             // Handle other players' call options upon the following cases:
             // Case 1: only users receive call options
@@ -242,12 +262,30 @@ class GameWorld {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isInGame()) {
           // TODO:
-          // First, transform the game
+          // First, transform the game, check if the round-turn/game has ended
+          let optionsBuffer = room.resolveAction(message.action);
+          if (room.getEndFlag()) {
+            // TODO: Send message PUSH_END_GAME
+          } else if (room.getNextRoundTurnFlag()) {
+            // TODO: Send message PUSH_CONTINUE_GAME
+          } else {
+            // Second, push updated game and option data to all users
+            let players = room.getPlayersData(); // DO NOT MODIFY
+            players.forEach((player, seatWind) => {
+              if (!player.isBot) {
+                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                  isValid: true,
+                  roomname: room.roomname,
+                  game: room.getGameInfo(),
+                  seatWind,
+                  options: optionsBuffer[seatWind]
+                }, player.name);
+              }
+            });
+            // Then, handle bot loop
+            
 
-          // Second, push updated game and option data to all users
-
-          // If the next player/players is/are bots,
-          // let them move one bot by one bot and push data to all for each move
+          }
 
         } else {
           this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,

@@ -39,7 +39,7 @@ class Game extends React.Component {
       discardOptionList = <div>
         {discardables.map((tile, i) =>
           <button key={i} onClick={this.handleDiscard.bind(this, tile)}>
-            {tilesToString([tile])}
+            {tilesToStringWall([tile])}
           </button>
         )}</div>;
     }
@@ -51,10 +51,10 @@ class Game extends React.Component {
           <h5>{player.name}'s data:</h5>
           <p>Score: {player.score}</p>
           <p>Seatwind: {player.seatWind}</p>
-          <p>Hand: {tilesToStringSorted(player.hand)}</p>
+          <p>Hand: {tilesToStringHand(player.hand)}</p>
           <p>Drawn tile: {player.drawnTile !== null ?
-            tilesToString([player.drawnTile]) : null}</p>
-          <p>Discard pile: {tilesToString(player.discardPile)}</p>
+            tilesToStringWall([player.drawnTile]) : null}</p>
+          <p>Discard pile: {tilesToStringWall(player.discardPile)}</p>
           {this.props.seatWind === i ? discardOptionList : null}
         </div>
       ))}
@@ -67,11 +67,11 @@ class Game extends React.Component {
           <div style={{ display: 'flex' }}>
             <div>
               <h5>liveWall:</h5>
-              <p>{tilesToString(this.props.liveWall)}</p>
+              <p>{tilesToStringWall(this.props.liveWall)}</p>
             </div>
             <div>
               <h5>deadWall:</h5>
-              <p>{tilesToString(this.props.deadWall)}</p>
+              <p>{tilesToStringWall(this.props.deadWall)}</p>
             </div>
           </div>
         </div>
@@ -85,7 +85,7 @@ class Game extends React.Component {
 // Temporary helper functions
 
 // For walls
-function tilesToString(tiles) {
+function tilesToStringWall(tiles) {
   let tilesStrings = [];
   let tileTypesStrings = ['m', 'p', 's', 'j'];
   tiles.forEach(tile => {
@@ -97,11 +97,10 @@ function tilesToString(tiles) {
 }
 
 // For hands
-function tilesToStringSorted(tiles) {
-  let sortedTiles = [...tiles].sort((x, y) => x < y ? -1 : x > y ? 1 : 0);
+function tilesToStringHand(tiles) {
   let tilesStrings = ['', '', '', ''];
   let tileTypesStrings = ['m', 'p', 's', 'j'];
-  sortedTiles.forEach(tile => {
+  tiles.forEach(tile => {
     let suitType = Math.floor(tile / 36);
     let suitNum = Math.floor((tile % 36) / 4);
     tilesStrings[suitType] += String(suitNum + 1);

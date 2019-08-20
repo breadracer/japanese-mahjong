@@ -68,6 +68,14 @@ class Room {
     return this.game.getGameboardInfo();
   }
 
+  getNextRoundTurnFlag() {
+    return this.game.roundData.nextRoundTurnFlag;
+  }
+
+  getEndFlag() {
+    return this.game.globalData.endFlag;
+  }
+
   getTurnCounter() {
     return this.game.roundData.turnCounter;
   }

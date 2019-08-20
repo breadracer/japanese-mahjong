@@ -76,7 +76,11 @@ module.exports.connectionHandler = function (socket, req) {
     // TODO: Verify client token for each incoming message
 
     console.log(`Received ${msg} from ${session_user}`);
-    await gameWorld.handleMessage(JSON.parse(msg), session_user);
+    try {
+      await gameWorld.handleMessage(JSON.parse(msg), session_user);
+    } catch (err) {
+      console.error(err);
+    }
     // Broadcast to everyone
     // gameWorld.sendToAll('CHAT', `${username} <${Date()}>: ${msg}`);
   });

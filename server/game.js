@@ -21,7 +21,7 @@ function Player({ name, isBot, seatWind }) {
   this.drawnTile = null;
   this.forbiddenTiles = []; // Disable call swapping (Kuikae)
 
-  this.hand = [];
+  this.hand = []; // Sorted
   // NOTE: openGroups array is ordered by the time of formation
   this.openGroups = []; // Array of: groups: type, tiles
   this.discardPile = [];
@@ -47,6 +47,9 @@ class Game {
       // Round counters
       roundWind: 0,
       roundWindCounter: 0, // Start from 0, index for the EAST player (1st move)
+
+      // Server-side only
+      endFlag: false // Indicate the end of the whole game
     };
     this.roundData = {
       // One-round data
@@ -54,8 +57,10 @@ class Game {
       deadWall: [], // length: 14 (4p)
       kanCounter: 0, // Indicator for doras and the position of haiteihai
       turnCounter: 0,  // Indicator for the next moving player, start from EAST
+      callTriggerTile: null, // Most recent discard or draw-time-kan tile
 
-
+      // Server-side only
+      nextRoundTurnFlag: false // Indicate the end of the round-turn
     }
     // From EAST to NORTH (or WEST)
     this.playersData = Array(maxPlayers);
@@ -85,10 +90,8 @@ class Game {
     switch (type) {
       // data: tile
       case actionTypes.ACTION_DISCARD: {
-        
-
-        // TODO: For last discard, end the turn here
-
+        this.discard(seatWind, data.tile);
+       
         break;
       }
 
@@ -169,7 +172,6 @@ class Game {
 
       // data: candidateTiles Array of arrays: [] (2 tiles)
       case actionTypes.OPTION_PON: {
-
         return null;
       }
 
@@ -200,18 +202,51 @@ class Game {
     ).filter(option => option !== null);
   }
 
-  generateCallOptions(discardSeatWind, tile) {
-
+  generateCallOptions(discardSeatWind) {
+    let optionTypes = [
+      actionTypes.OPTION_CHII,
+      actionTypes.OPTION_PON,
+      actionTypes.OPTION_KAN_OPEN_CALL,
+      actionTypes.OPTION_RON,
+    ];
+    return Object.values(winds).map(seatWind =>
+      seatWind === discardSeatWind ? []
+        : optionTypes.map(type => this.generateOption(type, seatWind,
+          this.roundData.callTriggerTile)).filter(option => option !== null));
   }
 
 
   // Bot move generators
-  generateBotDrawAction(seatWind) {
+  performBotDrawAction(seatWind) {
+    // TODO: Distinguish different type of bots, currently every bot will
+    // perform as if it is STUPID
+    let drawOptions = this.optionsBuffer[seatWind];
+    let { hand } = this.playersData[seatWind];
 
+    // STUPID bots will perform any options they have, prioritizing TSUMO,
+    // RIICHI over KANs over DISCARD, choices between tile groups and discarding
+    // tiles are performed randomly
+    if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_TSUMO)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_RIICHI)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_KAN_CLOSED)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_KAN_OPEN_DRAW)) {
+
+    } else {
+      let randIndex = Math.floor(Math.random() * hand.length);
+      this.discard(seatWind, hand[randIndex]);
+    }
   }
 
   generateBotCallAction(seatWind) {
-
+    // TODO: Distinguish different type of bots, currently every bot will
+    // perform as if it is STUPID
   }
 
 
@@ -228,7 +263,41 @@ class Game {
   }
 
   discard(seatWind, tile) {
+    let player = this.playersData[seatWind];
+    // If the tile is not the just drawn tile, update the hand
+    // Otherwise, the hand is not changed
+    if (player.drawnTile !== tile) {
+      player.hand.splice(player.hand.indexOf(tile), 1);
+      player.hand.push(player.drawnTile);
+      player.hand.sort(tileCompare);
+    }
+    player.discardPile.push(tile);
+    this.roundData.callTriggerTile = tile;
 
+     // Update optionsBuffer
+     this.optionsBuffer = this.generateCallOptions(seatWind);
+
+     // If there is no call option generated
+     if (this.optionsBuffer.every(playerOptions =>
+       playerOptions.length === 0)) {
+       // If this is the last discard and there is no call option 
+       // generated, end the current turn
+       if (this.roundData.liveWall.length === 0) {
+         // TODO: Configure player score changes here
+
+         this.endRoundTurn();
+
+         // Otherwise, move to the next player's draw time
+       } else {
+         this.roundData.turnCounter++;
+         this.roundData.turnCounter %= this.config.maxPlayers;
+         let turnCounter = this.roundData.turnCounter;
+         let drawnTile = this.drawLiveWall(turnCounter);
+         // Update optionsBuffer
+         this.optionsBuffer[turnCounter] = this.generateDrawOptions(
+           turnCounter, drawnTile);
+       }
+     }
   }
 
 
@@ -268,15 +337,25 @@ class Game {
       });
       counter++;
     });
-    this.startNewRound();
+    this.startRoundTurn();
   }
 
-  startNewRound() {
+  endRoundTurn() {
+    this.roundData.nextRoundTurnFlag = true;
+    // If this is the last turn of the last wind round, end the game
+    if (this.globalData.roundWind === this.config.endRoundWind &&
+      this.globalData.roundWindCounter === this.config.maxPlayers - 1) {
+      this.globalData.endFlag = true;
+    }
+  }
+
+  startRoundTurn() {
     // Set phase
     this.changePhase(serverPhases.INITIALIZING_ROUND);
 
-    let shuffledTiles;
+    this.roundData.nextRoundTurnFlag = false;
 
+    let shuffledTiles;
     // This is compatible only to 4p now
     if (this.config.maxPlayers === 4) {
       // Reset the walls
@@ -289,9 +368,6 @@ class Game {
       throw new Error('Error: unavailble number of players');
     }
 
-    // Reset kan counter
-    this.roundData.kanCounter = 0;
-
     // If current wind round has reached the maximum # of players, move to
     // the next wind round. Otherwise, continue current wind round
     if (this.globalData.roundWindCounter >= this.config.maxPlayers - 1) {
@@ -301,8 +377,10 @@ class Game {
       this.globalData.roundWindCounter++;
     }
 
-    // Reset the start turn index to EAST
+    // Reset record values
+    this.roundData.kanCounter = 0;
     this.roundData.turnCounter = winds.EAST;
+    this.roundData.callTriggerTile = null;
 
     // Change players' moving sequence
     this.playersData.push(this.playersData.shift());
@@ -312,10 +390,12 @@ class Game {
       player.seatWind = index;
       player.discardPile = [];
       player.openGroups = [];
-      player.hand = shuffledTiles.slice(index * 13, (index + 1) * 13);
+      player.hand = shuffledTiles.slice(
+        index * 13, (index + 1) * 13).sort(tileCompare);
     });
 
     // Resolve first turn's options and reset optionsBuffer
+    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
     this.optionsBuffer[turnCounter] = this.generateDrawOptions(
@@ -338,6 +418,11 @@ function shuffle(arr) {
     newArr[randIndex] = tempVal;
   }
   return newArr;
+}
+
+// Compare function of tiles
+function tileCompare(x, y) {
+  return x < y ? -1 : x > y ? 1 : 0;
 }
 
 module.exports = Game;

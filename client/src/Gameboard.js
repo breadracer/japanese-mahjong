@@ -37,6 +37,7 @@ class Gameboard extends React.Component {
       deadWall: [],
       kanCounter: 0,
       turnCounter: 0,
+      callTriggerTile: null,
       // name, isBot, seatWind, hand (array), discardPile (array), score
       playersData: [],
 
@@ -336,7 +337,8 @@ class Gameboard extends React.Component {
         if (message.isValid) {
           let { roomname, game, seatWind, options } = message;
           let playersData = game.playersData;
-          let { liveWall, deadWall, kanCounter, turnCounter } = game.roundData;
+          let { liveWall, deadWall, kanCounter,
+            turnCounter, callTriggerTile } = game.roundData;
           let { roundWind, roundWindCounter } = game.globalData;
           // For users in the target room
           if ((this.state.status === userStatus.IN_ROOM ||
@@ -351,6 +353,7 @@ class Gameboard extends React.Component {
               turnCounter,
               roundWind,
               roundWindCounter,
+              callTriggerTile,
               seatWind,
               options
             });
@@ -442,6 +445,7 @@ class Gameboard extends React.Component {
           kanCounter={this.state.kanCounter}
           turnCounter={this.state.turnCounter}
           playersData={this.state.playersData}
+          callTriggerTile={this.state.callTriggerTile}
 
           seatWind={this.state.seatWind}
           options={this.state.options}
