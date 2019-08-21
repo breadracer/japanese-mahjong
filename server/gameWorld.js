@@ -152,6 +152,7 @@ class GameWorld {
           // Initialize game data in the target room
           // Generate options for all user and bot players (1st turn)
           room.startGame();
+          let game = room.game;
 
           // Notify the world the target room is in game
           this.sendToAll(messageTypes.PUSH_START_GAME, {
@@ -163,24 +164,26 @@ class GameWorld {
 
           // First, push game data and options to all user players.
           // Since the first option is the draw option, only the first
-          // mover will receive valid options
-          let players = room.getPlayersData(); // DO NOT MODIFY
+          // mover will receive valid options (draw)
+          let players = game.getPlayersData(); // DO NOT MODIFY
           players.forEach((player, seatWind) => {
             if (!player.isBot) {
               this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
                 isValid: true,
                 roomname: room.roomname,
-                game: room.getGameInfo(),
+                game: game.getGameboardInfo(),
                 seatWind,
-                options: room.resolveAction(null)[seatWind]
+                options: game.getOptionsBuffer()[seatWind]
               }, player.name);
             }
           });
 
-          // Then, if the first moving player is bot, let it move first
+
+          // Then, if the first drawing player is bot, let it move first
           // This loop will continue until the first user player can make
           // an active response to an option (draw or call)
-          let turnCounter = room.getTurnCounter();
+          // NOTE: The bot loop -- enter when draw options are generated
+          let turnCounter = game.getTurnCounter();
           while (players[turnCounter].isBot) {
             let bot = players[turnCounter];
             // =================================================================
@@ -190,7 +193,7 @@ class GameWorld {
 
             // Second, figure out bot's move based on the draw options, and
             // generate new game data and call options
-            room.game.performBotDrawAction(turnCounter);
+            game.performBotDrawAction(turnCounter);
 
             // NOTE: THE FOLLOWING CODE WILL BE SHARED BY USER ACTION HANDLING
             // Then, push all game data and options to the users
@@ -207,9 +210,9 @@ class GameWorld {
                 this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
                   isValid: true,
                   roomname: room.roomname,
-                  game: room.getGameInfo(),
+                  game: game.getGameboardInfo(),
                   seatWind,
-                  options: room.resolveAction(null)[seatWind]
+                  options: game.getOptionsBuffer()[seatWind]
                 }, player.name);
               }
             });
@@ -247,7 +250,7 @@ class GameWorld {
 
 
             // Lastly, update the turn counter. If still bot, continue loop
-            turnCounter = room.getTurnCounter();
+            turnCounter = game.getTurnCounter();
             // End of this bots' turn. End of TODO
             // =================================================================
           }
@@ -261,29 +264,64 @@ class GameWorld {
       case messageTypes.PULL_UPDATE_GAME: {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isInGame()) {
-          // TODO:
+          let game = room.game;
           // First, transform the game, check if the round-turn/game has ended
-          let optionsBuffer = room.resolveAction(message.action);
-          if (room.getEndFlag()) {
+          game.transform(message.action);
+          let optionsBuffer = game.getOptionsBuffer();
+
+          if (game.shouldEndGame()) {
             // TODO: Send message PUSH_END_GAME
-          } else if (room.getNextRoundTurnFlag()) {
+          } else if (game.shouldEndRoundTurn()) {
             // TODO: Send message PUSH_CONTINUE_GAME
           } else {
-            // Second, push updated game and option data to all users
-            let players = room.getPlayersData(); // DO NOT MODIFY
+            // If game not ended, push updated game and option data to all users
+
+            // Four cases
+            // Case 1: Draw action transformed, call options are generated
+            // Case 2: Draw action transformed, no call option, instead next 
+            // draw options are generated -> go to bot draw loop
+            // Case 3: Call action transformed, pending for other call actions
+            // Case 4: Call action transformed, next draw options are generated
+            // -> go to bot draw loop
+
+            // Case 1
+            let players = game.getPlayersData();
             players.forEach((player, seatWind) => {
               if (!player.isBot) {
                 this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
                   isValid: true,
                   roomname: room.roomname,
-                  game: room.getGameInfo(),
+                  game: game.getGameboardInfo(),
                   seatWind,
                   options: optionsBuffer[seatWind]
                 }, player.name);
               }
             });
-            // Then, handle bot loop
-            
+            // Bot draw loop
+            let turnCounter = game.getTurnCounter();
+            while (players[turnCounter].isBot) {
+              let bot = players[turnCounter];
+              //================================================================
+              // TODO
+              await sleep(4000);
+              game.performBotDrawAction(turnCounter);
+              players.forEach((player, seatWind) => {
+                if (!player.isBot) {
+                  this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                    isValid: true,
+                    roomname: room.roomname,
+                    game: game.getGameboardInfo(),
+                    seatWind,
+                    options: game.getOptionsBuffer()[seatWind]
+                  }, player.name);
+                }
+              });
+              // TODO: Handling call options
+
+              turnCounter = game.getTurnCounter();
+              // End of this bots' turn. End of TODO
+              //================================================================
+            }
 
           }
 

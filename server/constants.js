@@ -6,10 +6,11 @@ module.exports.constants = {
 module.exports.winds = { EAST: 0, SOUTH: 1, WEST: 2, NORTH: 3 };
 
 module.exports.serverPhases = {
-  INITIALIZING_ROUND: 'INITIALIZING_ROUND',
+  INITIALIZING_TURN: 'INITIALIZING_TURN',
   WAITING_CALL_ACTION: 'WAITING_CALL_ACTION',
   WAITING_DRAW_ACTION: 'WAITING_DRAW_ACTION',
   PROCESSING_ACTION: 'PROCESSING_ACTION',
+  FINISHING_TURN: 'FINISHING_TURN',
   // TODO: More on this later
 }
 
@@ -19,6 +20,12 @@ module.exports.botTypes = {
   HARD: 'Saki',
   // TODO: More types later
 };
+
+module.exports.optionStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED'
+}
 
 module.exports.actionTypes = {
   OPTION_CHII: 'OPTION_CHII',

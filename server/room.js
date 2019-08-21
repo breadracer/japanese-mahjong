@@ -64,35 +64,6 @@ class Room {
   // Game related
   isInGame() { return this.game !== null; }
 
-  getGameInfo() {
-    return this.game.getGameboardInfo();
-  }
-
-  getNextRoundTurnFlag() {
-    return this.game.roundData.nextRoundTurnFlag;
-  }
-
-  getEndFlag() {
-    return this.game.globalData.endFlag;
-  }
-
-  getTurnCounter() {
-    return this.game.roundData.turnCounter;
-  }
-
-  getPlayersData() {
-    return this.game.playersData;
-  }
-
-  // If action is passed, transform then return the buffer
-  // Otherwise, return the buffer directly
-  resolveAction(action) {
-    if (action !== null) {
-      this.game.transform(action);
-    }
-    return this.game.getOptionsBuffer();
-  }
-
   // Return the option generated for the 1st player
   startGame() {
     if (this.isFull() && !this.isInGame()) {

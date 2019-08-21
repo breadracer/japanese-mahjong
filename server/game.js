@@ -1,7 +1,9 @@
 // NOTE: This code is temporarily only designed for 4p games
 // For further compatability of 3p games, add child classes for the Game class
 
-const { actionTypes, tileTypes, serverPhases, winds } = require('./constants');
+const {
+  actionTypes, tileTypes, serverPhases, optionStatus, winds
+} = require('./constants');
 
 // Array of numbers from 0 to 135
 const fourPlayersTiles = [...Array(136).keys()];
@@ -33,6 +35,9 @@ function Option(type, seatWind, data) {
   this.type = type;
   this.seatWind = seatWind;
   this.data = data;
+
+  // Only used in call options
+  this.status = optionStatus.PENDING;
 }
 
 class Game {
@@ -65,33 +70,33 @@ class Game {
     // From EAST to NORTH (or WEST)
     this.playersData = Array(maxPlayers);
 
-    this.phase = serverPhases.INITIALIZING_ROUND;
+    this.phase = serverPhases.INITIALIZING_TURN;
 
     // Store the options to be sent per modification to the Game object
-    // Array of Arrays of: options: type, seatWind, data
+    // Array of Arrays of: options: type, seatWind, data, status
     // Start from EAST
     this.optionsBuffer = Array(maxPlayers).fill([]);
 
     // Prioritized queues for the waiting incoming call actions
-    this.callOptionWaitlist = {
-      // Start from EAST
-      // Array of options: type, seatWind, data
-      primary: Array(maxPlayers), // RON
-      secondary: Array(maxPlayers), // PON or KAN_OPEN_CALL
-      tertiary: Array(maxPlayers) // CHII
-    }
+    // 0: RON, 1: PON or KAN_OPEN_CALL, 2: CHII
+    // Each priority list start from EAST
+    // NOTE: Each player has at most one call option of the same
+    // priority at once
+    // Array of arrays of options: type, seatWind, data, status
+    this.callOptionWaitlist = Array(3).fill(Array(maxPlayers));
 
   }
 
 
   // Main action handler, store the options to be sent
   transform(action) {
+    this.changePhase(serverPhases.PROCESSING_ACTION);
     let { type, seatWind, data } = action;
     switch (type) {
       // data: tile
       case actionTypes.ACTION_DISCARD: {
         this.discard(seatWind, data.tile);
-       
+
         break;
       }
 
@@ -188,6 +193,171 @@ class Game {
   }
 
 
+  // Basic operations
+  drawLiveWall(seatWind) {
+    // Assume liveWall is not []
+    let tile = this.roundData.liveWall.shift();
+    this.playersData[seatWind].drawnTile = tile;
+    return tile;
+  }
+
+  drawDeadWall(seatWind) {
+
+  }
+
+  discard(seatWind, tile) {
+    let player = this.playersData[seatWind];
+    // If the tile is not the just drawn tile, update the hand
+    // Otherwise, the hand is not changed
+    if (player.drawnTile !== tile) {
+      player.hand.splice(player.hand.indexOf(tile), 1);
+      player.hand.push(player.drawnTile);
+      player.hand.sort(tileCompare);
+    }
+    player.discardPile.push(tile);
+    this.roundData.callTriggerTile = tile;
+
+    // Update optionsBuffer
+    this.optionsBuffer = this.generateCallOptions(seatWind);
+
+    // If there is no call option generated
+    if (this.optionsBuffer.every(playerOptions =>
+      playerOptions.length === 0)) {
+      // If this is the last discard and there is no call option 
+      // generated, end the current turn
+      if (this.roundData.liveWall.length === 0) {
+        // TODO: Configure player score changes here
+
+        this.endRoundTurn();
+
+        // Otherwise, move to the next player's draw time
+      } else {
+        this.roundData.turnCounter++;
+        this.roundData.turnCounter %= this.config.maxPlayers;
+        let turnCounter = this.roundData.turnCounter;
+        let drawnTile = this.drawLiveWall(turnCounter);
+        // Update optionsBuffer
+        this.optionsBuffer[turnCounter] = this.generateDrawOptions(
+          turnCounter, drawnTile);
+
+        // Set phase
+        this.changePhase(serverPhases.WAITING_DRAW_ACTION);
+      }
+
+      // If there are call options generated
+    } else {
+      // Fill the callOptionWaitlist
+      let callOptions = this.optionsBuffer.reduce((acc, val) =>
+        acc.concat(val), []);
+      callOptions.forEach(option => {
+        switch (option.type) {
+          case actionTypes.OPTION_RON: {
+            this.callOptionWaitlist[0][option.seatWind] = option;
+            break;
+          }
+          case actionTypes.OPTION_PON:
+          case actionTypes.OPTION_KAN_OPEN_CALL: {
+            this.callOptionWaitlist[1][option.seatWind] = option;
+            break;
+          }
+          case actionTypes.OPTION_CHII: {
+            this.callOptionWaitlist[2][option.seatWind] = option;
+            break;
+          }
+        }
+      });
+      // Set phase
+      this.changePhase(serverPhases.WAITING_CALL_ACTION);
+    }
+
+  }
+
+
+  // Call option priority management
+  shouldTransformActionGroup() {
+    // Idea: For every received user or bot call action, this function should be
+    // called to determine if it is the time to transform the game based on
+    // current callOptionWaitlist status
+
+    // TODO: The following code is wrong
+    let flag = true;
+    // If there is any option with priority greater than or equal to the request
+    // priority that is ACCEPTED or PENDING, return false
+    for (let i = 2; i >= 0; i--) {
+      if (this.callOptionWaitlist[i].some(playerOption =>
+        playerOption && playerOption.status !== optionStatus.REJECTED)) {
+        flag = false;
+        break;
+      }
+    }
+    return flag;
+  }
+
+  transformActionGroup() { }
+
+
+  // Bot move generators
+  performBotDrawAction(seatWind) {
+    // TODO: Distinguish different type of bots, currently every bot will
+    // perform as if it is STUPID
+    let drawOptions = this.optionsBuffer[seatWind];
+    let { hand } = this.playersData[seatWind];
+
+    // STUPID bots will perform any options they have, prioritizing TSUMO,
+    // RIICHI over KANs over DISCARD, choices between tile groups and discarding
+    // tiles are performed randomly
+    if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_TSUMO)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_RIICHI)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_KAN_CLOSED)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_KAN_OPEN_DRAW)) {
+
+    } else if (drawOptions.some(option =>
+      option.type === actionTypes.OPTION_DISCARD)) {
+      let randIndex = Math.floor(Math.random() * hand.length);
+      this.discard(seatWind, hand[randIndex]);
+    }
+  }
+
+  generateBotCallAction(seatWind) {
+    // TODO: Distinguish different type of bots, currently every bot will
+    // perform as if it is STUPID
+    let callOptions = this.optionsBuffer[seatWind];
+    let { hand } = this.playersData[seatWind];
+
+    // STUPID bots will perform any options they have, prioritizing from RON,
+    // KAN_OPEN_CALL, PON, to CHII, choices between tile groups are random
+
+    // For each of the following branch:
+    // First, decide accept or reject, update the option
+    // Then, decide whether transform based on info of the waitlist
+
+    // NOTE: Here assume the call options have been filled in the waitlist
+    // inside routines like discard() or when handling other draw actions
+    if (callOptions.some(option =>
+      option.type === actionTypes.OPTION_RON)) {
+
+    } else if (callOptions.some(option =>
+      option.type === actionTypes.OPTION_KAN_OPEN_CALL)) {
+
+    } else if (callOptions.some(option =>
+      option.type === actionTypes.OPTION_PON)) {
+      // Accept here
+      option.status = optionStatus.ACCEPTED;
+
+    } else if (callOptions.some(option =>
+      option.type === actionTypes.OPTION_CHII)) {
+
+    }
+  }
+
+
   // Main option generators
   generateDrawOptions(drawSeatWind, tile) {
     let optionTypes = [
@@ -216,107 +386,11 @@ class Game {
   }
 
 
-  // Bot move generators
-  performBotDrawAction(seatWind) {
-    // TODO: Distinguish different type of bots, currently every bot will
-    // perform as if it is STUPID
-    let drawOptions = this.optionsBuffer[seatWind];
-    let { hand } = this.playersData[seatWind];
-
-    // STUPID bots will perform any options they have, prioritizing TSUMO,
-    // RIICHI over KANs over DISCARD, choices between tile groups and discarding
-    // tiles are performed randomly
-    if (drawOptions.some(option =>
-      option.type === actionTypes.OPTION_TSUMO)) {
-
-    } else if (drawOptions.some(option =>
-      option.type === actionTypes.OPTION_RIICHI)) {
-
-    } else if (drawOptions.some(option =>
-      option.type === actionTypes.OPTION_KAN_CLOSED)) {
-
-    } else if (drawOptions.some(option =>
-      option.type === actionTypes.OPTION_KAN_OPEN_DRAW)) {
-
-    } else {
-      let randIndex = Math.floor(Math.random() * hand.length);
-      this.discard(seatWind, hand[randIndex]);
-    }
-  }
-
-  generateBotCallAction(seatWind) {
-    // TODO: Distinguish different type of bots, currently every bot will
-    // perform as if it is STUPID
-  }
-
-
-  // Basic operations
-  drawLiveWall(seatWind) {
-    // Assume liveWall is not []
-    let tile = this.roundData.liveWall.shift();
-    this.playersData[seatWind].drawnTile = tile;
-    return tile;
-  }
-
-  drawDeadWall(seatWind) {
-
-  }
-
-  discard(seatWind, tile) {
-    let player = this.playersData[seatWind];
-    // If the tile is not the just drawn tile, update the hand
-    // Otherwise, the hand is not changed
-    if (player.drawnTile !== tile) {
-      player.hand.splice(player.hand.indexOf(tile), 1);
-      player.hand.push(player.drawnTile);
-      player.hand.sort(tileCompare);
-    }
-    player.discardPile.push(tile);
-    this.roundData.callTriggerTile = tile;
-
-     // Update optionsBuffer
-     this.optionsBuffer = this.generateCallOptions(seatWind);
-
-     // If there is no call option generated
-     if (this.optionsBuffer.every(playerOptions =>
-       playerOptions.length === 0)) {
-       // If this is the last discard and there is no call option 
-       // generated, end the current turn
-       if (this.roundData.liveWall.length === 0) {
-         // TODO: Configure player score changes here
-
-         this.endRoundTurn();
-
-         // Otherwise, move to the next player's draw time
-       } else {
-         this.roundData.turnCounter++;
-         this.roundData.turnCounter %= this.config.maxPlayers;
-         let turnCounter = this.roundData.turnCounter;
-         let drawnTile = this.drawLiveWall(turnCounter);
-         // Update optionsBuffer
-         this.optionsBuffer[turnCounter] = this.generateDrawOptions(
-           turnCounter, drawnTile);
-       }
-     }
-  }
-
-
   // Phase changer
   changePhase(nextPhase) {
     let prevPhase = this.phase;
     this.phase = nextPhase;
     console.log(`Server phase change ${prevPhase} -> ${nextPhase}`);
-  }
-
-  // Info message generator
-  getGameboardInfo() {
-    // TODO: More on this later
-    return this;
-  }
-
-  // Option message generator
-  getOptionsBuffer() {
-    return this.optionsBuffer;
   }
 
 
@@ -347,11 +421,12 @@ class Game {
       this.globalData.roundWindCounter === this.config.maxPlayers - 1) {
       this.globalData.endFlag = true;
     }
+    this.changePhase(serverPhases.FINISHING_TURN);
   }
 
   startRoundTurn() {
     // Set phase
-    this.changePhase(serverPhases.INITIALIZING_ROUND);
+    this.changePhase(serverPhases.INITIALIZING_TURN);
 
     this.roundData.nextRoundTurnFlag = false;
 
@@ -404,6 +479,21 @@ class Game {
     // Set phase
     this.changePhase(serverPhases.WAITING_DRAW_ACTION);
   }
+
+
+  // Info message generator
+  getGameboardInfo() {
+    // TODO: More on this later
+    return this;
+  }
+
+  // Getters
+  getOptionsBuffer() { return this.optionsBuffer; }
+  getPlayersData() { return this.playersData; }
+  getTurnCounter() { return this.roundData.turnCounter; }
+  shouldEndRoundTurn() { return this.roundData.nextRoundTurnFlag; }
+  shouldEndGame() { return this.globalData.endFlag; }
+
 }
 
 // Fisher-Yates Shuffle
