@@ -2,7 +2,8 @@
 // For further compatability of 3p games, add child classes for the Game class
 
 const {
-  actionTypes, tileTypes, serverPhases, optionStatus, winds
+  actionTypes, tileTypes, redDoraTileValues,
+  serverPhases, optionStatus, winds
 } = require('./constants');
 
 // Array of numbers from 0 to 135
@@ -170,13 +171,80 @@ class Game {
 
 
       // CALL OPTIONS
-      // data: candidateTiles Array of arrays: [] (2 tiles)
+      // data: candidateTiles: Array of arrays: [] (2 tiles),
+      //       acceptedCandidate: Array of 2 tiles
       case actionTypes.OPTION_CHII: {
+        let tileSuit = tileSuitOf(triggerTile);
+        let tileNum = tileNumOf(triggerTile); // 1 ~ 9
+        if (tileSuit != tileTypes.JIHAI) {
+          // Find sequences
+          let sequenceCandidates = [[], [], [], []]; // Types
+          // NOTE: This algorithm can be improved
+          hand.forEach(tile => {
+            if (tileSuitOf(tile) === tileSuit) {
+              let numDiff = tileNumOf(tile) - tileNum;
+              let index = numDiff < 0 ? numDiff + 2 : numDiff + 1;
+              let tileType = tileTypeOf(tile, { redDoraFlag: true });
+              if (numDiff <= 2 && numDiff >= -2 && numDiff !== 0 &&
+                sequenceCandidates[index].every(cand => tileTypeOf(cand, {
+                  redDoraFlag: true
+                }) !== tileType)) {
+                sequenceCandidates[index].push(tile);
+              }
+            }
+          });
+          let candidateTiles = [];
+          for (let i = 0; i < 3; i++) {
+            if (sequenceCandidates[i].length !== 0 &&
+              sequenceCandidates[i + 1].length !== 0) {
+              sequenceCandidates[i].forEach(tile_1 => {
+                sequenceCandidates[i + 1].forEach(tile_2 => {
+                  candidateTiles.push([tile_1, tile_2]);
+                });
+              });
+            }
+          }
+          return new Option(type, seatWind, {
+            candidateTiles, acceptedCandidate: null
+          });
+        }
         return null;
       }
 
-      // data: candidateTiles Array of arrays: [] (2 tiles)
+      // data: candidateTiles: Array of arrays: [] (2 tiles),
+      //       acceptedCandidate: Array of 2 tiles 
       case actionTypes.OPTION_PON: {
+        let tileSuit = tileSuitOf(triggerTile);
+        let tileType = tileTypeOf(triggerTile);
+        let tileNum = tileNumOf(triggerTile);
+        let sameTiles = hand.filter(tile => tileTypeOf(tile) === tileType);
+
+        let candidateTiles;
+        if (sameTiles.length >= 2) {
+          candidateTiles = [sameTiles.slice(0, 2)];
+
+          // Here the red-doras are handled as special cases
+          if (sameTiles.length === 3 && tileNum === 5 &&
+            tileSuit !== tileTypes.JIHAI) {
+            let redDoras = [];
+            let nonRedDoras = [];
+            sameTiles.forEach(tile => {
+              if (isRedDora(tile)) {
+                redDoras.push(tile);
+              } else {
+                nonRedDoras.push(tile);
+              }
+            });
+            if (redDoras.length === 0) {
+              candidateTiles = [nonRedDoras.slice(0, 2)];
+            } else if (redDoras.length === 1) {
+              candidateTiles = [[nonRedDoras[0], redDoras[0]], nonRedDoras];
+            } else {
+              candidateTiles = [redDoras, [nonRedDoras[0], redDoras[0]]];
+            }
+          }
+          return new Option(type, seatWind, { candidateTiles });
+        }
         return null;
       }
 
@@ -220,7 +288,7 @@ class Game {
     // Update optionsBuffer
     this.optionsBuffer = this.generateCallOptions(seatWind);
 
-    // If there is no call option generated
+    // If there is no call option generated (empty optionsBuffer)
     if (this.optionsBuffer.every(playerOptions =>
       playerOptions.length === 0)) {
       // If this is the last discard and there is no call option 
@@ -274,7 +342,7 @@ class Game {
 
 
   // Call option priority management
-  shouldTransformActionGroup() {
+  shouldTransformCallAction() {
     // Idea: For every received user or bot call action, this function should be
     // called to determine if it is the time to transform the game based on
     // current callOptionWaitlist status
@@ -293,7 +361,7 @@ class Game {
     return flag;
   }
 
-  transformActionGroup() { }
+  transformCallAction() { }
 
 
   // Bot move generators
@@ -325,7 +393,7 @@ class Game {
     }
   }
 
-  generateBotCallAction(seatWind) {
+  performBotCallAction(seatWind) {
     // TODO: Distinguish different type of bots, currently every bot will
     // perform as if it is STUPID
     let callOptions = this.optionsBuffer[seatWind];
@@ -353,6 +421,8 @@ class Game {
 
     } else if (callOptions.some(option =>
       option.type === actionTypes.OPTION_CHII)) {
+
+      option.status = optionStatus.ACCEPTED;
 
     }
   }
@@ -487,6 +557,7 @@ class Game {
     return this;
   }
 
+
   // Getters
   getOptionsBuffer() { return this.optionsBuffer; }
   getPlayersData() { return this.playersData; }
@@ -510,9 +581,22 @@ function shuffle(arr) {
   return newArr;
 }
 
-// Compare function of tiles
-function tileCompare(x, y) {
-  return x < y ? -1 : x > y ? 1 : 0;
+// Tile value computations
+function tileSuitOf(tile) { return Math.floor(tile / 36); }
+function tileNumOf(tile) { return Math.floor(tile / 4) % 9 + 1; }
+function tileTypeOf(tile, config = { redDoraFlag: false }) {
+  if (config.redDoraFlag && Object.values(redDoraTileValues).includes(tile)) {
+    return tile === redDoraTileValues.RED_MAN_5_1 ?
+      tileTypes.RED_MAN_5 : tile === redDoraTileValues.RED_SOU_5_1 ?
+        tileTypes.RED_SOU_5 : tileTypes.RED_PIN_5;
+  }
+  return Math.floor(tile / 4);
 }
+function isRedDora(tile) {
+  return tileTypeOf(tile) !== tileTypeOf(tile, { redDoraFlag: true });
+}
+
+// Compare function of tiles
+function tileCompare(x, y) { return x < y ? -1 : x > y ? 1 : 0; }
 
 module.exports = Game;

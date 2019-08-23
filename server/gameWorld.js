@@ -278,13 +278,18 @@ class GameWorld {
 
             // Four cases
             // Case 1: Draw action transformed, call options are generated
-            // Case 2: Draw action transformed, no call option, instead next 
+            // Case 2: Call action transformed, pending for other call actions
+
+            // Case 1 & 2
+            
+
+
+            // Case 3: Draw action transformed, no call option, instead next 
             // draw options are generated -> go to bot draw loop
-            // Case 3: Call action transformed, pending for other call actions
             // Case 4: Call action transformed, next draw options are generated
             // -> go to bot draw loop
 
-            // Case 1
+            // Case 3 & 4
             let players = game.getPlayersData();
             players.forEach((player, seatWind) => {
               if (!player.isBot) {

@@ -68,8 +68,19 @@ module.exports.tileTypes = {
   SOU_4: 21, SOU_5: 22, SOU_6: 23,
   SOU_7: 24, SOU_8: 25, SOU_9: 26,
   TON: 27, NAN: 28, SHAA: 29, PEI: 30,
-  HAKU: 31, HATSU: 32, CHUN: 33
+  HAKU: 31, HATSU: 32, CHUN: 33,
+  
+  // These tile numbers are only used in special cases where the presence 
+  // of the red-doras need to be treated differently from ordinary tiles
+  RED_MAN_5: 36, RED_PIN_5: 37, RED_SOU_5: 38
 };
+
+module.exports.redDoraTileValues = {
+  // NOTE: tile 16, 52, 53, 88 are red-doras
+  // Tile numbers
+  RED_MAN_5_1: 16, RED_PIN_5_1: 52,
+  RED_PIN_5_2: 53, RED_SOU_5_1: 88
+}
 
 
 module.exports.messageTypes = {
