@@ -82,6 +82,12 @@ module.exports.redDoraTileValues = {
   RED_PIN_5_2: 53, RED_SOU_5_1: 88
 }
 
+module.exports.tileGroupTypes = {
+  SHUNTSU: 'SHUNTSU',
+  KOUTSU: 'KOUTSU',
+  KANTSU_OPEN: 'KANTSU_OPEN',
+  KANTSU_CLOSED: 'KANTSU_CLOSED'
+}
 
 module.exports.messageTypes = {
   // Pull message types

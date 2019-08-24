@@ -12,7 +12,7 @@
 const Session = require('./session');
 const Room = require('./room');
 
-const { messageTypes } = require('./constants');
+const { messageTypes, actionTypes, serverPhases } = require('./constants');
 
 // Async 'sleep' between updates of bot moves
 function sleep(ms) {
@@ -265,70 +265,108 @@ class GameWorld {
         let room = this.getRoomByRoomname(message.roomname);
         if (room && room.isInGame()) {
           let game = room.game;
-          // First, transform the game, check if the round-turn/game has ended
-          game.transform(message.action);
-          let optionsBuffer = game.getOptionsBuffer();
+          let action = message.action;
+          // TODO: Change the way of checking action types later
+          let drawActionTypes = [
+            actionTypes.ACTION_TSUMO,
+            actionTypes.ACTION_RIICHI,
+            actionTypes.ACTION_KAN_CLOSED,
+            actionTypes.ACTION_KAN_OPEN_DRAW,
+            actionTypes.ACTION_DISCARD
+          ];
+          let callActionTypes = [
+            actionTypes.ACTION_RON,
+            actionTypes.ACTION_KAN_OPEN_CALL,
+            actionTypes.ACTION_PON,
+            actionTypes.ACTION_CHII
+          ];
 
-          if (game.shouldEndGame()) {
-            // TODO: Send message PUSH_END_GAME
-          } else if (game.shouldEndRoundTurn()) {
-            // TODO: Send message PUSH_CONTINUE_GAME
-          } else {
-            // If game not ended, push updated game and option data to all users
+          let phase = game.getPhase();
+          let players = game.getPlayersData();
 
-            // Four cases
-            // Case 1: Draw action transformed, call options are generated
-            // Case 2: Call action transformed, pending for other call actions
+          if (drawActionTypes.includes(action.type)) {
+            // First, transform the game, check if the round-turn/game has ended
+            game.transform(message.action);
+            let optionsBuffer = game.getOptionsBuffer();
 
-            // Case 1 & 2
-            
+            if (game.shouldEndGame()) {
+              // TODO: Send message PUSH_END_GAME
+            } else if (game.shouldEndRoundTurn()) {
+              // TODO: Send message PUSH_CONTINUE_GAME
+            } else {
+              // If game not ended, push updated game and options to all users
+
+              if (phase === serverPhases.WAITING_CALL_ACTION) {
+                // Case 1: Draw action transformed, call options are generated
+                
+                // First, perform call actions for bots
+                players.forEach((player, seatWind) => {
+                  if (player.isBot) {
+                    game.performBotCallAction(seatWind);
+                  }
+                });
+
+                // TODO:
+                // If the action can be performed directly, transform the game
+                let transformableActions = game.scanTransformableCallActions();
 
 
-            // Case 3: Draw action transformed, no call option, instead next 
-            // draw options are generated -> go to bot draw loop
-            // Case 4: Call action transformed, next draw options are generated
-            // -> go to bot draw loop
+              } else if (phase === serverPhases.WAITING_DRAW_ACTION) {
+                // Case 3: Draw action transformed, no call option, instead 
+                // next draw options are generated -> go to bot draw loop
+                players.forEach((player, seatWind) => {
+                  if (!player.isBot) {
+                    this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                      isValid: true,
+                      roomname: room.roomname,
+                      game: game.getGameboardInfo(),
+                      seatWind,
+                      options: optionsBuffer[seatWind]
+                    }, player.name);
+                  }
+                });
+                // Bot draw loop
+                let turnCounter = game.getTurnCounter();
+                while (players[turnCounter].isBot) {
+                  //============================================================
+                  // TODO
+                  await sleep(4000);
+                  game.performBotDrawAction(turnCounter);
+                  players.forEach((player, seatWind) => {
+                    if (!player.isBot) {
+                      this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                        isValid: true,
+                        roomname: room.roomname,
+                        game: game.getGameboardInfo(),
+                        seatWind,
+                        options: game.getOptionsBuffer()[seatWind]
+                      }, player.name);
+                    }
+                  });
+                  // TODO: Handling call options
 
-            // Case 3 & 4
-            let players = game.getPlayersData();
-            players.forEach((player, seatWind) => {
-              if (!player.isBot) {
-                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                  isValid: true,
-                  roomname: room.roomname,
-                  game: game.getGameboardInfo(),
-                  seatWind,
-                  options: optionsBuffer[seatWind]
-                }, player.name);
-              }
-            });
-            // Bot draw loop
-            let turnCounter = game.getTurnCounter();
-            while (players[turnCounter].isBot) {
-              let bot = players[turnCounter];
-              //================================================================
-              // TODO
-              await sleep(4000);
-              game.performBotDrawAction(turnCounter);
-              players.forEach((player, seatWind) => {
-                if (!player.isBot) {
-                  this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                    isValid: true,
-                    roomname: room.roomname,
-                    game: game.getGameboardInfo(),
-                    seatWind,
-                    options: game.getOptionsBuffer()[seatWind]
-                  }, player.name);
+                  turnCounter = game.getTurnCounter();
+                  // End of this bots' turn. End of TODO
+                  //============================================================
                 }
-              });
-              // TODO: Handling call options
 
-              turnCounter = game.getTurnCounter();
-              // End of this bots' turn. End of TODO
-              //================================================================
+              }
+
+
+
+
             }
+          } else if (callActionTypes.includes(action.type)) {
+            // Case 2: Call action transformed, pending for other call actions
+            // Case 4: Call action transformed, next draw options are
+            // generated
 
+
+          } else {
+            console.error('Error: unknown action type');
           }
+
+
 
         } else {
           this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,
