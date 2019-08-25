@@ -133,7 +133,7 @@ module.exports.heartbeat = function () {
     } else {
       s.setIsAlive(false);
       s.pingSocket();
-      console.log(`Ping to ${s.username} at ${Date()}`);
+      // console.log(`Ping to ${s.username} at ${Date()}`);
     }
   })
 };

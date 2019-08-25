@@ -13,8 +13,21 @@ class Session {
   terminateSocket() { this.socket.terminate(); }
 
   sendMessage(type, message) {
-    let data = JSON.stringify({ type, message });
-    console.log(`Send ${data} to ${this.username}`);
+    let data = JSON.stringify({ type, message }), dataLog;
+    if (type === 'PUSH_UPDATE_GAME') {
+      let { game, seatWind, options } = message;
+      let { optionsBuffer, callOptionWaitlist, roundData } = game;
+      let { turnCounter, callTriggerTile } = roundData;
+      dataLog = JSON.stringify({
+        type, message: {
+          turnCounter, callTriggerTile, seatWind,
+          options, optionsBuffer, callOptionWaitlist
+        }
+      });
+    } else {
+      dataLog = JSON.stringify({ type, message });
+    }
+    console.log(`Send ${dataLog} to ${this.username}`);
     this.socket.send(data);
   }
 

@@ -28,29 +28,33 @@ module.exports.optionStatus = {
 }
 
 module.exports.actionTypes = {
-  OPTION_CHII: 'OPTION_CHII',
-  OPTION_PON: 'OPTION_PON',
-  OPTION_KAN_OPEN_CALL: 'OPTION_KAN_OPEN_CALL',
-  OPTION_RON: 'OPTION_RON',
+  DRAW_OPTION: 0, CALL_OPTION: 1, DRAW_ACTION: 2, CALL_ACTION: 3,
 
-  OPTION_DISCARD: 'OPTION_DISCARD',
-  OPTION_KAN_CLOSED: 'OPTION_KAN_CLOSED',
-  OPTION_KAN_OPEN_DRAW: 'OPTION_KAN_OPEN_DRAW',
-  OPTION_RIICHI: 'OPTION_RIICHI',
-  OPTION_TSUMO: 'OPTION_TSUMO',
-
-  ACTION_CHII: 'ACTION_CHII',
-  ACTION_PON: 'ACTION_PON',
-  ACTION_KAN_OPEN_CALL: 'ACTION_KAN_OPEN_CALL',
-  ACTION_RON: 'ACTION_RON',
-
-  ACTION_DISCARD: 'ACTION_DISCARD',
-  ACTION_KAN_CLOSED: 'ACTION_KAN_CLOSED',
-  ACTION_KAN_OPEN_DRAW: 'ACTION_KAN_OPEN_DRAW',
-  ACTION_RIICHI: 'ACTION_RIICHI',
-  ACTION_TSUMO: 'ACTION_TSUMO',
-
+  OPTION_DISCARD: 0,
+  OPTION_KAN_OPEN_DRAW: 1,
+  OPTION_KAN_CLOSED: 2,
   // Three-player-game's unique action currently not available
+  OPTION_KITA: 3,
+  OPTION_RIICHI: 4,
+  OPTION_TSUMO: 5,
+
+  OPTION_CHII: 10,
+  OPTION_PON: 11,
+  OPTION_KAN_OPEN_CALL: 12,
+  OPTION_RON: 13,
+
+  ACTION_DISCARD: 20,
+  ACTION_KAN_OPEN_DRAW: 21,
+  ACTION_KAN_CLOSED: 22,
+  // Three-player-game's unique action currently not available
+  ACTION_KITA: 23,
+  ACTION_RIICHI: 24,
+  ACTION_TSUMO: 25,
+
+  ACTION_CHII: 30,
+  ACTION_PON: 31,
+  ACTION_KAN_OPEN_CALL: 32,
+  ACTION_RON: 33,
 };
 
 module.exports.tileTypes = {
@@ -69,7 +73,7 @@ module.exports.tileTypes = {
   SOU_7: 24, SOU_8: 25, SOU_9: 26,
   TON: 27, NAN: 28, SHAA: 29, PEI: 30,
   HAKU: 31, HATSU: 32, CHUN: 33,
-  
+
   // These tile numbers are only used in special cases where the presence 
   // of the red-doras need to be treated differently from ordinary tiles
   RED_MAN_5: 36, RED_PIN_5: 37, RED_SOU_5: 38

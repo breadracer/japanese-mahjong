@@ -93,6 +93,7 @@ class Game {
   // Main action handler, will reset optionsBuffer and callOptionWaitlist
   transform(action) {
     this.changePhase(serverPhases.PROCESSING_ACTION);
+    console.log(`Transforming ${JSON.stringify(action)}`);
     let { type, seatWind, data } = action;
     switch (type) {
       // data: tile
@@ -160,12 +161,15 @@ class Game {
 
     // Update the discarding player's data
     // If the tile is not the just drawn tile, update the hand
-    // Otherwise, the hand is not changed
     if (player.drawnTile !== tile) {
       player.hand.splice(player.hand.indexOf(tile), 1);
-      player.hand.push(player.drawnTile);
-      player.hand.sort(tileCompare);
+      // If the discard is right after call action (no drawn tile), just discard
+      if (player.drawnTile !== null) {
+        player.hand.push(player.drawnTile);
+        player.hand.sort(tileCompare);
+      }
     }
+    // Otherwise, the hand is not changed
     player.drawnTile = null;
     player.discardPile.push(tile);
     this.roundData.callTriggerTile = tile;
@@ -219,7 +223,10 @@ class Game {
     // TODO: Set the player's forbiddenTiles data
 
     // Set the turnCounter to the calling player's seatWind
+    this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
+    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
+    this.syncCallOptionWaitlist();
     this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
     // Set phase
     this.changePhase(serverPhases.WAITING_DRAW_ACTION);
@@ -237,7 +244,10 @@ class Game {
     // TODO: Set the player's forbiddenTiles data
 
     // Set the turnCounter to the calling player's seatWind
+    this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
+    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
+    this.syncCallOptionWaitlist();
     this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
     // Set phase
     this.changePhase(serverPhases.WAITING_DRAW_ACTION);
@@ -246,6 +256,8 @@ class Game {
 
   // Call option priority management
   syncCallOptionWaitlist() {
+    this.callOptionWaitlist = [...Array(3).keys()].map(
+      () => Array(this.config.maxPlayers));
     let callOptions = this.optionsBuffer.reduce((acc, val) =>
       acc.concat(val), []);
     callOptions.forEach(option => {
@@ -275,7 +287,7 @@ class Game {
     // Transform condition: start looping from the tertiary options to the
     // primary options, execute the option that has no higher-or-equal-priority 
     // option that is PENDING or ACCEPTED
-    let transformableActions = [];
+    let transformableOptions = [];
     let currentPriority = this.callOptionWaitlist.length - 1;
     let highestClearedPriority = -1;
     while (currentPriority >= 0) {
@@ -292,10 +304,12 @@ class Game {
       let acceptPriority = this.callOptionWaitlist.findIndex(
         priorityOptions => priorityOptions.some(option =>
           option.status === optionStatus.ACCEPTED));
-      transformableActions = this.callOptionWaitlist[acceptPriority].filter(
-        option => option.status === optionStatus.ACCEPTED);
+      if (acceptPriority !== -1) {
+        transformableOptions = this.callOptionWaitlist[acceptPriority].filter(
+          option => option.status === optionStatus.ACCEPTED);
+      }
     }
-    return transformableActions;
+    return transformableOptions.map(option => this.optionToAction(option));
   }
 
 
@@ -461,6 +475,7 @@ class Game {
           // Options of lower priority for the STUPID bot will not be accepted
           option.status = optionStatus.REJECTED;
         } else {
+          option.status = optionStatus.ACCEPTED;
           switch (option.type) {
             case actionTypes.OPTION_TSUMO: break;
             case actionTypes.OPTION_RIICHI: break;
@@ -472,7 +487,6 @@ class Game {
               break;
             }
           }
-          option.status = optionStatus.ACCEPTED;
           // Marking that the following scanned options will be rejected
           acceptedFlag = true;
         }
@@ -659,6 +673,17 @@ class Game {
   getGameboardInfo() {
     // TODO: More on this later
     return this;
+  }
+
+
+  // Option related helper functions
+  optionTypeOf(option) { return Math.floor(option.type / 10); }
+  // Convert option to corresponding action
+  optionToAction(option) {
+    if (this.optionTypeOf(option) < actionTypes.DRAW_ACTION) {
+      return { ...option, type: option.type + 20 };
+    }
+    return null;
   }
 
 

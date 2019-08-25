@@ -12,15 +12,10 @@ class Game extends React.Component {
     return true;
   }
 
-  handleDiscard = tile => {
-    // Assume the discard is valid
+  handleAction = (type, data) => {
     this.props.sendMessage(messageTypes.PULL_UPDATE_GAME, {
       roomname: this.props.roomname,
-      action: {
-        type: actionTypes.ACTION_DISCARD,
-        seatWind: this.props.seatWind,
-        data: { tile }
-      }
+      action: { type, data, seatWind: this.props.seatWind }
     });
   }
 
@@ -35,14 +30,54 @@ class Game extends React.Component {
       let { data } = discardOption;
       let playerSelf = this.props.playersData[this.props.seatWind];
       let discardables = [...playerSelf.hand, playerSelf.drawnTile].filter(
-          tile => !data.forbiddenTiles.includes(tile));
+        tile => !data.forbiddenTiles.includes(tile));
       discardOptionList = <div>
         {discardables.map((tile, i) =>
-          <button key={i} onClick={this.handleDiscard.bind(this, tile)}>
-            {tilesToStringWall([tile])}
-          </button>
-        )}</div>;
+          <button key={i} onClick={this.handleAction.bind(
+            this, actionTypes.ACTION_DISCARD, { tile }
+          )}>{tilesToStringWall([tile])}</button>)}
+      </div>;
     }
+
+    let nonDiscardOptions = this.props.options.filter(option =>
+      option.type !== actionTypes.OPTION_DISCARD);
+    let nonDiscardOptionList = <div><ul>
+      {nonDiscardOptions.map((option, i) => {
+        let callTriggerTile = this.props.callTriggerTile;
+        switch (option.type) {
+          case actionTypes.OPTION_KAN_OPEN_DRAW: return null;
+          case actionTypes.OPTION_KAN_CLOSED: return null;
+          case actionTypes.OPTION_RIICHI: return null;
+          case actionTypes.OPTION_TSUMO: return null;
+
+          case actionTypes.OPTION_CHII:
+            return <li key={i}>CHII: {
+              option.data.candidateTiles.map((group, j) =>
+                <button key={j} onClick={this.handleAction.bind(
+                  this, optionToActionType(option.type), {
+                    acceptedCandidate: group,
+                    triggerTile: callTriggerTile
+                  })
+                }>{tilesToStringWall([...group, callTriggerTile])}</button>)
+            }</li>;
+
+          case actionTypes.OPTION_PON:
+            return <li key={i}>PON: {
+              option.data.candidateTiles.map((group, j) =>
+                <button key={j} onClick={this.handleAction.bind(
+                  this, optionToActionType(option.type), {
+                    acceptedCandidate: group,
+                    triggerTile: callTriggerTile
+                  })
+                }>{tilesToStringWall([...group, callTriggerTile])}</button>)
+            }</li>;
+
+          case actionTypes.OPTION_KAN_OPEN_CALL: return null;
+          case actionTypes.OPTION_RON: return null;
+        }
+      }).filter(option => option)}
+    </ul></div>
+
 
 
     let playersList = <div style={{ display: 'flex' }}>
@@ -55,6 +90,14 @@ class Game extends React.Component {
           <p>Drawn tile: {player.drawnTile !== null ?
             tilesToStringWall([player.drawnTile]) : null}</p>
           <p>Discard pile: {tilesToStringWall(player.discardPile)}</p>
+          <div>
+            <p>Tile groups: </p>
+            <ul>{
+              player.tileGroups.map((group, j) =>
+                <li key={j}>{tilesToStringWall(group.tiles)}</li>)
+            }</ul>
+          </div>
+          {this.props.seatWind === i ? nonDiscardOptionList : null}
           {this.props.seatWind === i ? discardOptionList : null}
         </div>
       ))}
@@ -112,5 +155,8 @@ function tilesToStringHand(tiles) {
   });
   return tilesStrings.join('');
 }
+
+// Convert option type to corresponding action type
+function optionToActionType(type) { return type + 20; }
 
 export default Game;
