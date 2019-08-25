@@ -30,7 +30,7 @@ class Game extends React.Component {
       let { data } = discardOption;
       let playerSelf = this.props.playersData[this.props.seatWind];
       let discardables = [...playerSelf.hand, playerSelf.drawnTile].filter(
-        tile => !data.forbiddenTiles.includes(tile));
+        tile => tile && !data.forbiddenTiles.includes(tile));
       discardOptionList = <div>
         {discardables.map((tile, i) =>
           <button key={i} onClick={this.handleAction.bind(

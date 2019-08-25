@@ -12,7 +12,9 @@
 const Session = require('./session');
 const Room = require('./room');
 
-const { messageTypes, actionTypes, serverPhases } = require('./constants');
+const {
+  messageTypes, actionTypes, serverPhases, optionStatus
+} = require('./constants');
 
 // Async 'sleep' between updates of bot moves
 function sleep(ms) {
@@ -270,7 +272,6 @@ class GameWorld {
           if (game.optionTypeOf(action) === actionTypes.DRAW_ACTION) {
             // First, transform the game, check if the round-turn/game has ended
             game.transform(action);
-            let optionsBuffer = game.getOptionsBuffer();
 
             if (game.shouldEndGame()) {
               // TODO: Send message PUSH_END_GAME
@@ -306,7 +307,7 @@ class GameWorld {
                       roomname: room.roomname,
                       game: game.getGameboardInfo(),
                       seatWind,
-                      options: optionsBuffer[seatWind]
+                      options: game.getOptionsBuffer()[seatWind]
                     }, player.name);
                   }
                 });
@@ -361,7 +362,7 @@ class GameWorld {
                       roomname: room.roomname,
                       game: game.getGameboardInfo(),
                       seatWind,
-                      options: optionsBuffer[seatWind]
+                      options: game.getOptionsBuffer()[seatWind]
                     }, player.name);
                   }
                 });
@@ -411,9 +412,81 @@ class GameWorld {
             // generated
 
             // First, accept the target option and reject other options for
-            // the target player's optionsBuffer space
+            // the target player's optionsBuffer space (this should also update
+            // the corresponding option status in callOptionWaitlist since the
+            // references are shared)
+            game.getOptionsBuffer()[action.seatWind].forEach(option => {
+              if (game.optionToActionType(option.type) === action.type) {
+                option.status = optionStatus.ACCEPTED;
+                option.data = action.data;
+              } else {
+                option.status = optionStatus.REJECTED;
+              }
+            });
 
+            // Check if the user's action can be transformed directly
+            let transformableActions = game.scanTransformableCallActions();
+            transformableActions.forEach(transformable => {
+              game.transform(transformable);
+            });
 
+            // Two cases:
+            // Case 1: Actions are already transformed previously and the
+            //         users will receive draw options
+            // Case 2: Actions are not transformed, users will receive other
+            //         call options
+            players.forEach((player, seatWind) => {
+              if (!player.isBot) {
+                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                  isValid: true,
+                  roomname: room.roomname,
+                  game: game.getGameboardInfo(),
+                  seatWind,
+                  options: game.getOptionsBuffer()[seatWind]
+                }, player.name);
+              }
+            });
+
+            // For case 1, enter the bot loop
+            if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+              // Bot draw loop
+              let turnCounter = game.getTurnCounter();
+              while (players[turnCounter].isBot &&
+                game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+                //==========================================================
+                await sleep(4000);
+                game.performBotDrawAction(turnCounter);
+
+                if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
+                  // First, perform call actions for bots
+                  players.forEach((player, seatWind) => {
+                    if (player.isBot) {
+                      game.performBotCallAction(seatWind);
+                    }
+                  });
+                  // Check if the bots' action can be transformed directly
+                  game.scanTransformableCallActions().forEach(
+                    transformable => game.transform(transformable));
+                }
+                // Two cases:
+                // Case 1: The users will receive draw options
+                // Case 2: The users will receive other call options
+                players.forEach((player, seatWind) => {
+                  if (!player.isBot) {
+                    this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+                      isValid: true,
+                      roomname: room.roomname,
+                      game: game.getGameboardInfo(),
+                      seatWind,
+                      options: game.getOptionsBuffer()[seatWind]
+                    }, player.name);
+                  }
+                });
+                turnCounter = game.getTurnCounter();
+                // End of this bots' turn
+                //==========================================================
+              }
+            }
 
           } else {
             console.error('Error: unknown action type');

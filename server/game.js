@@ -678,10 +678,13 @@ class Game {
 
   // Option related helper functions
   optionTypeOf(option) { return Math.floor(option.type / 10); }
+  // Convert option type to corresponding action type
+  optionToActionType(type) { return type + 20; }
   // Convert option to corresponding action
   optionToAction(option) {
     if (this.optionTypeOf(option) < actionTypes.DRAW_ACTION) {
-      return { ...option, type: option.type + 20 };
+      let type = this.optionToActionType(option.type);
+      return { ...option, type };
     }
     return null;
   }
