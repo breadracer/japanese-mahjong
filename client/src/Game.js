@@ -1,5 +1,5 @@
 import React from 'react';
-import { actionTypes, messageTypes } from './constants';
+import { actionTypes, messageTypes, optionStatus } from './constants';
 
 class Game extends React.Component {
   // props:
@@ -40,7 +40,8 @@ class Game extends React.Component {
     }
 
     let nonDiscardOptions = this.props.options.filter(option =>
-      option.type !== actionTypes.OPTION_DISCARD);
+      option.type !== actionTypes.OPTION_DISCARD &&
+      option.status === optionStatus.PENDING);
     let nonDiscardOptionList = <div><ul>
       {nonDiscardOptions.map((option, i) => {
         let callTriggerTile = this.props.callTriggerTile;
@@ -57,8 +58,7 @@ class Game extends React.Component {
                   this, optionToActionType(option.type), {
                     acceptedCandidate: group,
                     triggerTile: callTriggerTile
-                  })
-                }>{tilesToStringWall([...group, callTriggerTile])}</button>)
+                  })}>{tilesToStringWall([...group, callTriggerTile])}</button>)
             }</li>;
 
           case actionTypes.OPTION_PON:
@@ -74,6 +74,7 @@ class Game extends React.Component {
 
           case actionTypes.OPTION_KAN_OPEN_CALL: return null;
           case actionTypes.OPTION_RON: return null;
+          default: return null;
         }
       }).filter(option => option)}
     </ul></div>

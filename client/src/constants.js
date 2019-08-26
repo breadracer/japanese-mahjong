@@ -16,6 +16,12 @@ export const botTypes = {
   // TODO: More types later
 };
 
+export const optionStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED'
+}
+
 export const actionTypes = {
   DRAW_OPTION: 0, CALL_OPTION: 1, DRAW_ACTION: 2, CALL_ACTION: 3,
 

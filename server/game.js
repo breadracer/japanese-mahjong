@@ -287,20 +287,29 @@ class Game {
     // Transform condition: start looping from the tertiary options to the
     // primary options, execute the option that has no higher-or-equal-priority 
     // option that is PENDING or ACCEPTED
+    console.log(`Scanning callOptionWaitlist ${
+      JSON.stringify(this.callOptionWaitlist)}`);
     let transformableOptions = [];
     let currentPriority = this.callOptionWaitlist.length - 1;
     let highestClearedPriority = -1;
-    while (currentPriority >= 0) {
+    let highestNonEmptyPriority = this.callOptionWaitlist.findIndex(
+      priorityOptions => priorityOptions.some(option => option));
+    // If there is no options, return immediately
+    if (highestNonEmptyPriority === -1) {
+      return transformableOptions;
+    }
+    while (currentPriority >= highestNonEmptyPriority) {
       let candidateOptions = this.callOptionWaitlist[
         currentPriority].filter(option => option);
       // NOTE: Array.every will return true for empty arrays
-      if (candidateOptions.every(option =>
-        option.status !== optionStatus.PENDING)) {
+      if (candidateOptions.length !== 0 &&
+        candidateOptions.every(option =>
+          option.status !== optionStatus.PENDING)) {
         highestClearedPriority = currentPriority;
       }
       currentPriority--;
     }
-    if (highestClearedPriority === 0) {
+    if (highestClearedPriority === highestNonEmptyPriority) {
       let acceptPriority = this.callOptionWaitlist.findIndex(
         priorityOptions => priorityOptions.some(option =>
           option.status === optionStatus.ACCEPTED));
@@ -309,7 +318,10 @@ class Game {
           option => option.status === optionStatus.ACCEPTED);
       }
     }
-    return transformableOptions.map(option => this.optionToAction(option));
+    let transformables = transformableOptions.map(option =>
+      this.optionToAction(option));
+    console.log(`Scan result ${JSON.stringify(transformables)}`);
+    return transformables;
   }
 
 
@@ -476,6 +488,7 @@ class Game {
           option.status = optionStatus.REJECTED;
         } else {
           option.status = optionStatus.ACCEPTED;
+          let actionType = this.optionToActionType(option.type);
           switch (option.type) {
             case actionTypes.OPTION_TSUMO: break;
             case actionTypes.OPTION_RIICHI: break;
@@ -483,7 +496,11 @@ class Game {
             case actionTypes.OPTION_KAN_OPEN_DRAW: break;
             case actionTypes.OPTION_DISCARD: {
               let randIndex = Math.floor(Math.random() * hand.length);
-              this.discard(seatWind, hand[randIndex]);
+              this.transform({
+                type: actionType,
+                seatWind,
+                data: { tile: hand[randIndex] }
+              });
               break;
             }
           }
@@ -653,8 +670,16 @@ class Game {
       player.seatWind = index;
       player.discardPile = [];
       player.tileGroups = [];
-      player.hand = shuffledTiles.slice(
-        index * 13, (index + 1) * 13).sort(tileCompare);
+      // player.hand = shuffledTiles.slice(
+      //   index * 13, (index + 1) * 13).sort(tileCompare);
+      player.hand = [
+        [2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50],
+        [54, 58, 3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43],
+
+        [28, 29, 32, 33, 36, 37, 40, 41, 44, 45, 48, 49, 52],
+        [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25],
+
+      ][index]
     });
 
     // Resolve first turn's options and reset optionsBuffer
