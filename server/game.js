@@ -180,32 +180,12 @@ class Game {
     // Update the callOptionWaitlist
     this.syncCallOptionWaitlist();
 
-    // If there is no call option generated (empty optionsBuffer)
     if (this.optionsBuffer.every(playerOptions =>
       playerOptions.length === 0)) {
-      // If this is the last discard and there is no call option 
-      // generated, end the current turn
-      if (this.roundData.liveWall.length === 0) {
-        // TODO: Configure player score changes here
-
-        this.endRoundTurn();
-
-        // Otherwise, move to the next player's draw time
-      } else {
-        this.roundData.turnCounter++;
-        this.roundData.turnCounter %= this.config.maxPlayers;
-        let turnCounter = this.roundData.turnCounter;
-        let drawnTile = this.drawLiveWall(turnCounter);
-        // Update optionsBuffer
-        this.optionsBuffer[turnCounter] = this.generateDrawOptions(
-          turnCounter, drawnTile);
-
-        // Set phase
-        this.changePhase(serverPhases.WAITING_DRAW_ACTION);
-      }
-
-      // If there are call options generated
+      // If there is no call option generated (empty optionsBuffer)
+      this.proceedToNextDraw();
     } else {
+      // If there are call options generated
       // Set phase
       this.changePhase(serverPhases.WAITING_CALL_ACTION);
     }
@@ -290,6 +270,7 @@ class Game {
     console.log(`Scanning callOptionWaitlist ${
       JSON.stringify(this.callOptionWaitlist)}`);
     let transformableOptions = [];
+    let allRejected = false;
     let currentPriority = this.callOptionWaitlist.length - 1;
     let highestClearedPriority = -1;
     let highestNonEmptyPriority = this.callOptionWaitlist.findIndex(
@@ -314,14 +295,39 @@ class Game {
         priorityOptions => priorityOptions.some(option =>
           option.status === optionStatus.ACCEPTED));
       if (acceptPriority !== -1) {
+        // If there is any accepted option
         transformableOptions = this.callOptionWaitlist[acceptPriority].filter(
           option => option.status === optionStatus.ACCEPTED);
+      } else {
+        // Otherwise, all options are rejected
+        allRejected = true;
       }
     }
     let transformables = transformableOptions.map(option =>
       this.optionToAction(option));
-    console.log(`Scan result ${JSON.stringify(transformables)}`);
-    return transformables;
+    console.log(`Scan result ${JSON.stringify(transformables)}${
+      allRejected ? ' All options are rejected' : ''}`);
+    return { allRejected, transformables };
+  }
+
+  proceedToNextDraw() {
+    if (this.roundData.liveWall.length === 0) {
+      // If this is the last discard, end the current turn
+
+      // TODO: Configure player score changes here
+      this.endRoundTurn();
+    } else {
+      // Otherwise, move to the next player's draw time
+      this.roundData.turnCounter++;
+      this.roundData.turnCounter %= this.config.maxPlayers;
+      let turnCounter = this.roundData.turnCounter;
+      let drawnTile = this.drawLiveWall(turnCounter);
+      // Update optionsBuffer
+      this.optionsBuffer[turnCounter] = this.generateDrawOptions(
+        turnCounter, drawnTile);
+      // Set phase
+      this.changePhase(serverPhases.WAITING_DRAW_ACTION);
+    }
   }
 
 

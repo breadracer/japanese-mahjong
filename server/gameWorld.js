@@ -230,8 +230,16 @@ class GameWorld {
                 }
               });
               // Check if the bots' action can be transformed directly
-              game.scanTransformableCallActions().forEach(
-                transformable => game.transform(transformable));
+              let {
+                allRejected, transformables
+              } = game.scanTransformableCallActions();
+              if (allRejected) {
+                game.proceedToNextDraw();
+              } else {
+                transformables.forEach(transformable =>
+                  game.transform(transformable));
+              }
+
             }
             // Two cases:
             // Case 1: The users will receive draw options
@@ -290,10 +298,15 @@ class GameWorld {
                 });
 
                 // Check if the bots' action can be transformed directly
-                let transformableActions = game.scanTransformableCallActions();
-                transformableActions.forEach(transformable => {
-                  game.transform(transformable);
-                });
+                let {
+                  allRejected, transformables
+                } = game.scanTransformableCallActions();
+                if (allRejected) {
+                  game.proceedToNextDraw();
+                } else {
+                  transformables.forEach(transformable =>
+                    game.transform(transformable));
+                }
 
                 // Two cases:
                 // Case 1: Actions are already transformed previously and the
@@ -330,8 +343,15 @@ class GameWorld {
                         }
                       });
                       // Check if the bots' action can be transformed directly
-                      game.scanTransformableCallActions().forEach(
-                        transformable => game.transform(transformable));
+                      let {
+                        allRejected, transformables
+                      } = game.scanTransformableCallActions();
+                      if (allRejected) {
+                        game.proceedToNextDraw();
+                      } else {
+                        transformables.forEach(transformable =>
+                          game.transform(transformable));
+                      }
                     }
                     // Two cases:
                     // Case 1: The users will receive draw options
@@ -382,8 +402,15 @@ class GameWorld {
                       }
                     });
                     // Check if the bots' action can be transformed directly
-                    game.scanTransformableCallActions().forEach(
-                      transformable => game.transform(transformable));
+                    let {
+                      allRejected, transformables
+                    } = game.scanTransformableCallActions();
+                    if (allRejected) {
+                      game.proceedToNextDraw();
+                    } else {
+                      transformables.forEach(transformable =>
+                        game.transform(transformable));
+                    }
                   }
                   // Two cases:
                   // Case 1: The users will receive draw options
@@ -411,24 +438,39 @@ class GameWorld {
             // Case 4: Call action transformed, next draw options are
             // generated
 
-            // First, accept the target option and reject other options for
-            // the target player's optionsBuffer space (this should also update
-            // the corresponding option status in callOptionWaitlist since the
-            // references are shared)
-            game.getOptionsBuffer()[action.seatWind].forEach(option => {
-              if (game.optionToActionType(option.type) === action.type) {
-                option.status = optionStatus.ACCEPTED;
-                option.data = action.data;
-              } else {
+            // Update option status based on the incoming action (this 
+            // should also update the corresponding option status in 
+            // callOptionWaitlist since the references are shared)
+            if (action.type === actionTypes.ACTION_SKIP_CALL) {
+              // If ACTION_SKIP_CALL, reject all options for the target player's
+              // optionBuffer space
+              game.getOptionsBuffer()[action.seatWind].forEach(option => {
                 option.status = optionStatus.REJECTED;
-              }
-            });
+              });
+            } else {
+              // If not ACTION_SKIP_CALL, accept the target option and reject 
+              // other options for the target player's optionsBuffer space
+              game.getOptionsBuffer()[action.seatWind].forEach(option => {
+                if (game.optionToActionType(option.type) === action.type) {
+                  option.status = optionStatus.ACCEPTED;
+                  option.data = action.data;
+                } else {
+                  option.status = optionStatus.REJECTED;
+                }
+              });
+            }
+
 
             // Check if the user's action can be transformed directly
-            let transformableActions = game.scanTransformableCallActions();
-            transformableActions.forEach(transformable => {
-              game.transform(transformable);
-            });
+            let {
+              allRejected, transformables
+            } = game.scanTransformableCallActions();
+            if (allRejected) {
+              game.proceedToNextDraw();
+            } else {
+              transformables.forEach(transformable =>
+                game.transform(transformable));
+            }
 
             // Two cases:
             // Case 1: Actions are already transformed previously and the
@@ -465,8 +507,15 @@ class GameWorld {
                     }
                   });
                   // Check if the bots' action can be transformed directly
-                  game.scanTransformableCallActions().forEach(
-                    transformable => game.transform(transformable));
+                  let {
+                    allRejected, transformables
+                  } = game.scanTransformableCallActions();
+                  if (allRejected) {
+                    game.proceedToNextDraw();
+                  } else {
+                    transformables.forEach(transformable =>
+                      game.transform(transformable));
+                  }
                 }
                 // Two cases:
                 // Case 1: The users will receive draw options
@@ -491,8 +540,6 @@ class GameWorld {
           } else {
             console.error('Error: unknown action type');
           }
-
-
 
         } else {
           this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,

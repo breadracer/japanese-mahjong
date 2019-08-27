@@ -42,9 +42,19 @@ class Game extends React.Component {
     let nonDiscardOptions = this.props.options.filter(option =>
       option.type !== actionTypes.OPTION_DISCARD &&
       option.status === optionStatus.PENDING);
+    // If there is any call options (no discard option),
+    // add a skip button at the end
+    if (discardOptionList === null && nonDiscardOptions.length !== 0) {
+      nonDiscardOptions.push(null);
+    }
     let nonDiscardOptionList = <div><ul>
       {nonDiscardOptions.map((option, i) => {
         let callTriggerTile = this.props.callTriggerTile;
+        // For the pre-allocated skip button
+        if (option === null) {
+          return <li key={i}><button onClick={this.handleAction.bind(
+            this, actionTypes.ACTION_SKIP_CALL, null)}>SKIP</button></li>
+        }
         switch (option.type) {
           case actionTypes.OPTION_KAN_OPEN_DRAW: return null;
           case actionTypes.OPTION_KAN_CLOSED: return null;

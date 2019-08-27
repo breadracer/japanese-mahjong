@@ -55,6 +55,9 @@ module.exports.actionTypes = {
   ACTION_PON: 31,
   ACTION_KAN_OPEN_CALL: 32,
   ACTION_RON: 33,
+
+  // Special action to reject all other call options
+  ACTION_SKIP_CALL: 34,
 };
 
 module.exports.tileTypes = {
