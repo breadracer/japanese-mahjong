@@ -62,27 +62,39 @@ class Game extends React.Component {
           case actionTypes.OPTION_TSUMO: return null;
 
           case actionTypes.OPTION_CHII:
-            return <li key={i}>CHII: {
+            return <li key={i}>{
               option.data.candidateTiles.map((group, j) =>
-                <button key={j} onClick={this.handleAction.bind(
-                  this, optionToActionType(option.type), {
-                    acceptedCandidate: group,
-                    triggerTile: callTriggerTile
-                  })}>{tilesToStringWall([...group, callTriggerTile])}</button>)
-            }</li>;
+                <button key={j} onClick={
+                  this.handleAction.bind(
+                    this, optionToActionType(option.type), {
+                      acceptedCandidate: group,
+                      triggerTile: callTriggerTile
+                    })}>CHII {
+                    tilesToStringWall([...group, callTriggerTile])
+                  }</button>)}</li>;
 
           case actionTypes.OPTION_PON:
-            return <li key={i}>PON: {
+            return <li key={i}>{
               option.data.candidateTiles.map((group, j) =>
                 <button key={j} onClick={this.handleAction.bind(
                   this, optionToActionType(option.type), {
                     acceptedCandidate: group,
                     triggerTile: callTriggerTile
-                  })
-                }>{tilesToStringWall([...group, callTriggerTile])}</button>)
-            }</li>;
+                  })}>PON {
+                    tilesToStringWall([...group, callTriggerTile])
+                  }</button>)}</li>;
 
-          case actionTypes.OPTION_KAN_OPEN_CALL: return null;
+          case actionTypes.OPTION_KAN_OPEN_CALL:
+            return <li key={i}>{
+              option.data.candidateTiles.map((group, j) =>
+                <button key={j} onClick={this.handleAction.bind(
+                  this, optionToActionType(option.type), {
+                    acceptedCandidate: group,
+                    triggerTile: callTriggerTile
+                  })}>KAN {
+                    tilesToStringWall([...group, callTriggerTile])
+                  }</button>)}</li>;
+
           case actionTypes.OPTION_RON: return null;
           default: return null;
         }

@@ -22,6 +22,13 @@ function Player({ name, isBot, seatWind }) {
 
   this.seatWind = seatWind;
 
+  // One turn data, automatically reset to false upon the next draw
+  this.kanFlag = false;
+  this.riichiFlag = false;
+
+  // Update upon the next draw of the action
+  this.riichiStick = false; // Indicate the formal riichi state
+
   this.drawnTile = null;
   this.forbiddenTiles = []; // Disable call swapping (Kuikae)
 
@@ -62,9 +69,11 @@ class Game {
       // One-round data
       liveWall: [], // length: 122 (4p)
       deadWall: [], // length: 14 (4p)
-      kanCounter: 0, // Indicator for doras and the position of haiteihai
       turnCounter: 0,  // Indicator for the next moving player, start from EAST
       callTriggerTile: null, // Most recent discard or draw-time-kan tile
+
+      // Update upon the next draw of the action
+      kanCounter: 0, // Indicator for doras and the position of haiteihai
 
       // Server-side only
       nextRoundTurnFlag: false // Indicate the end of the round-turn
@@ -82,10 +91,9 @@ class Game {
     // Prioritized queues for the waiting incoming call actions
     // 0: RON, 1: PON or KAN_OPEN_CALL, 2: CHII
     // Each priority list start from EAST
-    // NOTE: Each player has at most one call option of the same
-    // priority at once
-    // Array of arrays of options: type, seatWind, data, status
-    this.callOptionWaitlist = [...Array(3).keys()].map(() => Array(maxPlayers));
+    // 3-d array of options: type, seatWind, data, status
+    this.callOptionWaitlist = [...Array(3).keys()].map(() =>
+      [...Array(maxPlayers).keys()].map(() => []));
 
   }
 
@@ -129,6 +137,7 @@ class Game {
       }
 
       case actionTypes.ACTION_KAN_OPEN_CALL: {
+        this.kanOpenCall(seatWind, data.acceptedCandidate, data.triggerTile);
         break;
       }
 
@@ -148,7 +157,10 @@ class Game {
   }
 
   drawDeadWall(seatWind) {
-
+    // Assume deadWall is not []
+    let tile = this.roundData.deadWall.shift();
+    this.playersData[seatWind].drawnTile = tile;
+    return tile;
   }
 
 
@@ -173,6 +185,16 @@ class Game {
     player.drawnTile = null;
     player.discardPile.push(tile);
     this.roundData.callTriggerTile = tile;
+
+    // Check if the player has just kanned or riichied
+    if (player.kanFlag === true) {
+      this.roundData.kanCounter++;
+      player.kanFlag = false;
+    }
+    if (player.riichiFlag === true) {
+      player.riichiStick = true;
+      player.riichiFlag = false;
+    }
 
     // Update optionsBuffer
     this.optionsBuffer = this.generateCallOptions(seatWind);
@@ -205,6 +227,7 @@ class Game {
     // Set the turnCounter to the calling player's seatWind
     this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
+    // Clear optionsBuffer and callOptionWaitlist
     this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
     this.syncCallOptionWaitlist();
     this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
@@ -226,6 +249,7 @@ class Game {
     // Set the turnCounter to the calling player's seatWind
     this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
+    // Clear optionsBuffer and callOptionWaitlist
     this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
     this.syncCallOptionWaitlist();
     this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
@@ -233,83 +257,34 @@ class Game {
     this.changePhase(serverPhases.WAITING_DRAW_ACTION);
   }
 
+  kanOpenCall(seatWind, acceptedCandidate, tile) {
+    let player = this.playersData[seatWind];
+    player.tileGroups.push(new Group(
+      tileGroupTypes.KANTSU_OPEN,
+      this.roundData.turnCounter,
+      [...acceptedCandidate, tile]
+    ));
+    player.hand = player.hand.filter(tile =>
+      !acceptedCandidate.includes(tile));
+    // TODO: Set the player's forbiddenTiles data
 
-  // Call option priority management
-  syncCallOptionWaitlist() {
-    this.callOptionWaitlist = [...Array(3).keys()].map(
-      () => Array(this.config.maxPlayers));
-    let callOptions = this.optionsBuffer.reduce((acc, val) =>
-      acc.concat(val), []);
-    callOptions.forEach(option => {
-      switch (option.type) {
-        case actionTypes.OPTION_RON: {
-          this.callOptionWaitlist[0][option.seatWind] = option;
-          break;
-        }
-        case actionTypes.OPTION_PON:
-        case actionTypes.OPTION_KAN_OPEN_CALL: {
-          this.callOptionWaitlist[1][option.seatWind] = option;
-          break;
-        }
-        case actionTypes.OPTION_CHII: {
-          this.callOptionWaitlist[2][option.seatWind] = option;
-          break;
-        }
-      }
-    });
+    // Set the player's kanFlag to true
+    player.kanFlag = true;
+    // Set the turnCounter to the calling player's seatWind
+    this.roundData.callTriggerTile = null;
+    this.roundData.turnCounter = seatWind;
+    // Clear optionsBuffer and callOptionWaitlist
+    this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
+    this.syncCallOptionWaitlist();
+    // Draw from deadWall
+    this.drawDeadWall(seatWind);
+    this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
+    // Set phase
+    this.changePhase(serverPhases.WAITING_DRAW_ACTION);
   }
 
-  scanTransformableCallActions() {
-    // Idea: For every received user or bot call action, this function should be
-    // called to determine if it is the time to transform the game based on
-    // current callOptionWaitlist status
 
-    // Transform condition: start looping from the tertiary options to the
-    // primary options, execute the option that has no higher-or-equal-priority 
-    // option that is PENDING or ACCEPTED
-    console.log(`Scanning callOptionWaitlist ${
-      JSON.stringify(this.callOptionWaitlist)}`);
-    let transformableOptions = [];
-    let allRejected = false;
-    let currentPriority = this.callOptionWaitlist.length - 1;
-    let highestClearedPriority = -1;
-    let highestNonEmptyPriority = this.callOptionWaitlist.findIndex(
-      priorityOptions => priorityOptions.some(option => option));
-    // If there is no options, return immediately
-    if (highestNonEmptyPriority === -1) {
-      return transformableOptions;
-    }
-    while (currentPriority >= highestNonEmptyPriority) {
-      let candidateOptions = this.callOptionWaitlist[
-        currentPriority].filter(option => option);
-      // NOTE: Array.every will return true for empty arrays
-      if (candidateOptions.length !== 0 &&
-        candidateOptions.every(option =>
-          option.status !== optionStatus.PENDING)) {
-        highestClearedPriority = currentPriority;
-      }
-      currentPriority--;
-    }
-    if (highestClearedPriority === highestNonEmptyPriority) {
-      let acceptPriority = this.callOptionWaitlist.findIndex(
-        priorityOptions => priorityOptions.some(option =>
-          option.status === optionStatus.ACCEPTED));
-      if (acceptPriority !== -1) {
-        // If there is any accepted option
-        transformableOptions = this.callOptionWaitlist[acceptPriority].filter(
-          option => option.status === optionStatus.ACCEPTED);
-      } else {
-        // Otherwise, all options are rejected
-        allRejected = true;
-      }
-    }
-    let transformables = transformableOptions.map(option =>
-      this.optionToAction(option));
-    console.log(`Scan result ${JSON.stringify(transformables)}${
-      allRejected ? ' All options are rejected' : ''}`);
-    return { allRejected, transformables };
-  }
-
+  // Action execution helper functions
   proceedToNextDraw() {
     if (this.roundData.liveWall.length === 0) {
       // If this is the last discard, end the current turn
@@ -328,6 +303,89 @@ class Game {
       // Set phase
       this.changePhase(serverPhases.WAITING_DRAW_ACTION);
     }
+  }
+
+
+  // Call option priority management
+  syncCallOptionWaitlist() {
+    this.callOptionWaitlist = [...Array(3).keys()].map(() =>
+      [...Array(this.config.maxPlayers).keys()].map(() => []));
+    let callOptions = this.optionsBuffer.reduce((acc, val) =>
+      acc.concat(val), []);
+    callOptions.forEach(option => {
+      switch (option.type) {
+        case actionTypes.OPTION_RON: {
+          this.callOptionWaitlist[0][option.seatWind].push(option);
+          break;
+        }
+        case actionTypes.OPTION_PON:
+        case actionTypes.OPTION_KAN_OPEN_CALL: {
+          this.callOptionWaitlist[1][option.seatWind].push(option);
+          break;
+        }
+        case actionTypes.OPTION_CHII: {
+          this.callOptionWaitlist[2][option.seatWind].push(option);
+          break;
+        }
+      }
+    });
+  }
+
+  scanTransformableCallActions() {
+    // Idea: For every received user or bot call action, this function should be
+    // called to determine if it is the time to transform the game based on
+    // current callOptionWaitlist status
+
+    // Transform condition: start looping from the tertiary options to the
+    // primary options, execute the option that has no higher-or-equal-priority 
+    // option that is PENDING or ACCEPTED
+
+    // NOTE: This algorithm can be improved
+    console.log(`Scanning callOptionWaitlist ${
+      JSON.stringify(this.callOptionWaitlist)}`);
+    let transformableOptions = [];
+    let allRejected = false;
+    let currentPriority = this.callOptionWaitlist.length - 1;
+    let highestClearedPriority = -1;
+    let highestNonEmptyPriority = this.callOptionWaitlist.findIndex(
+      priorityOptions => priorityOptions.some(options => options.length !== 0));
+    // If there is no options, return immediately
+    if (highestNonEmptyPriority === -1) {
+      return transformableOptions;
+    }
+    while (currentPriority >= highestNonEmptyPriority) {
+      let candidateOptions = this.callOptionWaitlist[currentPriority].reduce(
+        (acc, val) => acc.concat(val), []);
+      // NOTE: Array.every will return true for empty arrays
+      if (candidateOptions.length !== 0 &&
+        candidateOptions.every(option =>
+          option.status !== optionStatus.PENDING)) {
+        highestClearedPriority = currentPriority;
+      }
+      currentPriority--;
+    }
+    if (highestClearedPriority === highestNonEmptyPriority) {
+      let acceptPriority = this.callOptionWaitlist.findIndex(
+        priorityOptions => priorityOptions.reduce((acc, val) => acc.concat(val),
+          []).some(option => option.status === optionStatus.ACCEPTED));
+      if (acceptPriority !== -1) {
+        // If there is any accepted option
+        transformableOptions = this.callOptionWaitlist[acceptPriority].reduce(
+          (acc, val) => acc.concat(val), []).filter(option =>
+            option.status === optionStatus.ACCEPTED);
+      } else {
+        // Otherwise, check if all options are rejected
+        allRejected = this.callOptionWaitlist.reduce((acc, val) =>
+          acc.concat(val), []).reduce((acc, val) =>
+            acc.concat(val), []).every(option =>
+              option.status === optionStatus.REJECTED);
+      }
+    }
+    let transformables = transformableOptions.map(option =>
+      this.optionToAction(option));
+    console.log(`Scan result ${JSON.stringify(transformables)}${
+      allRejected ? ' All options are rejected' : ''}`);
+    return { allRejected, transformables };
   }
 
 
@@ -453,6 +511,15 @@ class Game {
 
       // data: candidateTiles Array of arrays: [] (3 tiles)
       case actionTypes.OPTION_KAN_OPEN_CALL: {
+        let tileType = tileTypeOf(triggerTile);
+        let sameTiles = hand.filter(tile => tileTypeOf(tile) === tileType);
+        let candidateTiles;
+        if (sameTiles.length >= 3) {
+          candidateTiles = [sameTiles.slice(0, 3)];
+          return new Option(type, seatWind, {
+            triggerTile, candidateTiles, acceptedCandidate: null
+          });
+        }
         return null;
       }
 
@@ -679,11 +746,12 @@ class Game {
       // player.hand = shuffledTiles.slice(
       //   index * 13, (index + 1) * 13).sort(tileCompare);
       player.hand = [
-        [2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50],
-        [54, 58, 3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43],
+        [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 54, 58],
+
+        [18, 22, 26, 30, 34, 38, 42, 46, 50, 53, 57, 61, 65],
 
         [28, 29, 32, 33, 36, 37, 40, 41, 44, 45, 48, 49, 52],
-        [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25],
+        [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 17],
 
       ][index]
     });
