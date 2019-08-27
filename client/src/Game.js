@@ -57,7 +57,16 @@ class Game extends React.Component {
         }
         switch (option.type) {
           case actionTypes.OPTION_KAN_OPEN_DRAW: return null;
-          case actionTypes.OPTION_KAN_CLOSED: return null;
+          case actionTypes.OPTION_KAN_CLOSED:
+            return <li key={i}>{
+              option.data.candidateTiles.map((group, j) =>
+                <button key={j} onClick={this.handleAction.bind(
+                  this, optionToActionType(option.type), {
+                    acceptedCandidate: group
+                  })}>KAN {
+                    tilesToStringWall(group)
+                  }</button>)}</li>;
+
           case actionTypes.OPTION_RIICHI: return null;
           case actionTypes.OPTION_TSUMO: return null;
 

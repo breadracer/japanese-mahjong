@@ -111,6 +111,7 @@ class Game {
       }
 
       case actionTypes.ACTION_KAN_CLOSED: {
+        this.kanClosed(seatWind, data.acceptedCandidate);
         break;
       }
 
@@ -266,7 +267,6 @@ class Game {
     ));
     player.hand = player.hand.filter(tile =>
       !acceptedCandidate.includes(tile));
-    // TODO: Set the player's forbiddenTiles data
 
     // Set the player's kanFlag to true
     player.kanFlag = true;
@@ -277,10 +277,57 @@ class Game {
     this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
     this.syncCallOptionWaitlist();
     // Draw from deadWall
-    this.drawDeadWall(seatWind);
-    this.optionsBuffer[seatWind] = this.generateDrawOptions(seatWind, null);
+    let drawnTile = this.drawDeadWall(seatWind);
+    this.optionsBuffer[seatWind] = this.generateDrawOptions(
+      seatWind, drawnTile);
     // Set phase
     this.changePhase(serverPhases.WAITING_DRAW_ACTION);
+  }
+
+  kanClosed(seatWind, acceptedCandidate) {
+    let player = this.playersData[seatWind];
+    player.tileGroups.push(new Group(
+      tileGroupTypes.KANTSU_CLOSED,
+      this.roundData.turnCounter,
+      acceptedCandidate
+    ));
+
+    // If the kan is right after another kan, insert the drawn tile into hand
+    if (player.drawnTile !== null) {
+      player.hand.push(player.drawnTile);
+      player.hand.sort(tileCompare);
+      player.drawnTile = null;
+    }
+    player.hand = player.hand.filter(tile =>
+      !acceptedCandidate.includes(tile));
+
+    // Check if the player has just kanned
+    if (player.kanFlag === true) {
+      this.roundData.kanCounter++;
+      player.kanFlag = false;
+    }
+
+    // First generate call options, if empty, generate draw options
+    this.optionsBuffer = this.generateKanTriggeredCallOptions(seatWind);
+
+    // Update the callOptionWaitlist
+    this.syncCallOptionWaitlist();
+
+    if (this.optionsBuffer.every(playerOptions => playerOptions.length === 0)) {
+      // If there is no call option generated (Most of the times)
+      // Set the player's kanFlag to true
+      player.kanFlag = true;
+      let drawnTile = this.drawDeadWall(seatWind);
+      // Update optionsBuffer
+      this.optionsBuffer[seatWind] = this.generateDrawOptions(
+        seatWind, drawnTile);
+      // Set phase
+      this.changePhase(serverPhases.WAITING_DRAW_ACTION);
+    } else {
+      // If there are call options generated
+      // Set phase
+      this.changePhase(serverPhases.WAITING_CALL_ACTION);
+    }
   }
 
 
@@ -402,8 +449,31 @@ class Game {
         });
       }
 
-      // data: candidateTiles Array of arrays: [] (3 tiles)
+      // data: candidateTiles: Array of arrays: [] (4 tiles),
+      //       acceptedCandidate: Array of 4 tiles
       case actionTypes.OPTION_KAN_CLOSED: {
+        // Find the 4 same tiles out of the sorted hand
+        let drawnHand = [...hand, triggerTile].sort(tileCompare);
+        let candidateTiles = [];
+        let sameTypeStart = 0, sameTypeEnd = 0;
+        let prevTileType = -1, currTileType;
+        for (let i = 0; i < drawnHand.length; i++) {
+          currTileType = tileTypeOf(drawnHand[i]);
+          if (currTileType === prevTileType) {
+            sameTypeEnd = i + 1;
+          } else {
+            sameTypeStart = i;
+            prevTileType = currTileType;
+          }
+          if (sameTypeEnd - sameTypeStart === 4) {
+            candidateTiles.push(drawnHand.slice(sameTypeStart, sameTypeEnd));
+          }
+        }
+        if (candidateTiles.length !== 0) {
+          return new Option(type, seatWind, {
+            candidateTiles, acceptedCandidate: null
+          });
+        }
         return null;
       }
 
@@ -531,6 +601,40 @@ class Game {
   }
 
 
+  // Main option generators
+  generateDrawOptions(drawSeatWind, tile) {
+    let optionTypes = [
+      actionTypes.OPTION_DISCARD,
+      actionTypes.OPTION_KAN_OPEN_DRAW,
+      actionTypes.OPTION_KAN_CLOSED,
+      actionTypes.OPTION_RIICHI,
+      actionTypes.OPTION_TSUMO
+    ];
+    return optionTypes.map(type =>
+      this.generateOption(type, drawSeatWind, tile, drawSeatWind)
+    ).filter(option => option !== null);
+  }
+
+  generateCallOptions(discardSeatWind) {
+    let optionTypes = [
+      actionTypes.OPTION_CHII,
+      actionTypes.OPTION_PON,
+      actionTypes.OPTION_KAN_OPEN_CALL,
+      actionTypes.OPTION_RON,
+    ];
+    return Object.values(winds).map(seatWind =>
+      seatWind === discardSeatWind ? []
+        : optionTypes.map(type => this.generateOption(type, seatWind,
+          this.roundData.callTriggerTile, discardSeatWind)).filter(option =>
+            option !== null));
+  }
+
+  generateKanTriggeredCallOptions(kanSeatWind) {
+    // TODO: More on this later
+    return Object.values(winds).map(() => []);
+  }
+
+
   // Bot move generators
   performBotDrawAction(seatWind) {
     // TODO: Distinguish different type of bots, currently every bot will
@@ -565,7 +669,13 @@ class Game {
           switch (option.type) {
             case actionTypes.OPTION_TSUMO: break;
             case actionTypes.OPTION_RIICHI: break;
-            case actionTypes.OPTION_KAN_CLOSED: break;
+            case actionTypes.OPTION_KAN_CLOSED: {
+              this.transform({
+                type: actionType,
+                seatWind,
+                data: { acceptedCandidate: option.data.candidateTiles[0] }
+              })
+            }
             case actionTypes.OPTION_KAN_OPEN_DRAW: break;
             case actionTypes.OPTION_DISCARD: {
               let randIndex = Math.floor(Math.random() * hand.length);
@@ -632,35 +742,6 @@ class Game {
         }
       }
     }
-  }
-
-
-  // Main option generators
-  generateDrawOptions(drawSeatWind, tile) {
-    let optionTypes = [
-      actionTypes.OPTION_DISCARD,
-      actionTypes.OPTION_KAN_OPEN_DRAW,
-      actionTypes.OPTION_KAN_CLOSED,
-      actionTypes.OPTION_RIICHI,
-      actionTypes.OPTION_TSUMO
-    ];
-    return optionTypes.map(type =>
-      this.generateOption(type, drawSeatWind, tile, drawSeatWind)
-    ).filter(option => option !== null);
-  }
-
-  generateCallOptions(discardSeatWind) {
-    let optionTypes = [
-      actionTypes.OPTION_CHII,
-      actionTypes.OPTION_PON,
-      actionTypes.OPTION_KAN_OPEN_CALL,
-      actionTypes.OPTION_RON,
-    ];
-    return Object.values(winds).map(seatWind =>
-      seatWind === discardSeatWind ? []
-        : optionTypes.map(type => this.generateOption(type, seatWind,
-          this.roundData.callTriggerTile, discardSeatWind)).filter(option =>
-            option !== null));
   }
 
 
@@ -750,7 +831,7 @@ class Game {
 
         [18, 22, 26, 30, 34, 38, 42, 46, 50, 53, 57, 61, 65],
 
-        [28, 29, 32, 33, 36, 37, 40, 41, 44, 45, 48, 49, 52],
+        [72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84],
         [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 17],
 
       ][index]
