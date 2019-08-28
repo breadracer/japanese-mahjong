@@ -64,7 +64,7 @@ class Game extends React.Component {
                     acceptedCandidateInfo: candidate
                   })}>KAN {
                     tilesToStringWall([
-                      ...this.props.playersData.tileGroups[
+                      ...this.props.playersData[this.props.seatWind].tileGroups[
                         candidate.groupIndex].tiles, candidate.tile
                     ])
                   }</button>)}</li>;

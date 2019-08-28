@@ -744,13 +744,15 @@ class Game {
                 seatWind,
                 data: { acceptedCandidate: option.data.candidateTiles[0] }
               });
+              break;
             }
             case actionTypes.OPTION_KAN_OPEN_DRAW: {
               this.transform({
                 type: actionType,
                 seatWind,
-                data: { acceptedCandidate: option.data.candidateInfo[0] }
+                data: { acceptedCandidateInfo: option.data.candidateInfo[0] }
               });
+              break;
             }
             case actionTypes.OPTION_DISCARD: {
               let randIndex = Math.floor(Math.random() * hand.length);
@@ -869,7 +871,10 @@ class Game {
     if (this.config.maxPlayers === 4) {
       // Reset the walls
       shuffledTiles = shuffle(fourPlayersTiles);
-      this.roundData.liveWall = shuffledTiles.slice(52, 122);
+      // this.roundData.liveWall = shuffledTiles.slice(52, 122);
+      this.roundData.liveWall = [
+        72,72,72,72,72,72,76,76,76,76,76,80,80,80,80,80
+      ]
       this.roundData.deadWall = shuffledTiles.slice(122, 136);
     } else if (this.config.maxPlayers === 3) {
       throw new Error('Error: 3-player currently unavailable');
@@ -902,11 +907,11 @@ class Game {
       // player.hand = shuffledTiles.slice(
       //   index * 13, (index + 1) * 13).sort(tileCompare);
       player.hand = [
-        [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 54, 58],
+        [27, 31, 35, 39, 43, 54, 58, 73, 77, 81, 85, 86, 87],
 
         [18, 22, 26, 30, 34, 38, 42, 46, 50, 53, 57, 61, 65],
 
-        [72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84],
+        [3, 7, 11, 15, 19, 23, 74, 75, 78, 79, 82, 83, 84],
         [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 17],
 
       ][index]
