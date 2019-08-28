@@ -56,7 +56,19 @@ class Game extends React.Component {
             this, actionTypes.ACTION_SKIP_CALL, null)}>SKIP</button></li>
         }
         switch (option.type) {
-          case actionTypes.OPTION_KAN_OPEN_DRAW: return null;
+          case actionTypes.OPTION_KAN_OPEN_DRAW:
+            return <li key={i}>{
+              option.data.candidateInfo.map((candidate, j) =>
+                <button key={j} onClick={this.handleAction.bind(
+                  this, optionToActionType(option.type), {
+                    acceptedCandidateInfo: candidate
+                  })}>KAN {
+                    tilesToStringWall([
+                      ...this.props.playersData.tileGroups[
+                        candidate.groupIndex].tiles, candidate.tile
+                    ])
+                  }</button>)}</li>;
+
           case actionTypes.OPTION_KAN_CLOSED:
             return <li key={i}>{
               option.data.candidateTiles.map((group, j) =>

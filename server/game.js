@@ -116,6 +116,7 @@ class Game {
       }
 
       case actionTypes.ACTION_KAN_OPEN_DRAW: {
+        this.kanOpenDraw(seatWind, data.acceptedCandidateInfo);
         break;
       }
 
@@ -301,6 +302,9 @@ class Game {
     player.hand = player.hand.filter(tile =>
       !acceptedCandidate.includes(tile));
 
+    // Update callTriggerTile
+    this.roundData.callTriggerTile = acceptedCandidate[0];
+
     // Check if the player has just kanned
     if (player.kanFlag === true) {
       this.roundData.kanCounter++;
@@ -330,6 +334,54 @@ class Game {
     }
   }
 
+  kanOpenDraw(seatWind, acceptedCandidateInfo) {
+    let player = this.playersData[seatWind];
+    let { groupIndex, tile: candidateTile } = acceptedCandidateInfo;
+
+    // Update the target tile group
+    let targetTileGroup = player.tileGroups[groupIndex];
+    targetTileGroup.type = tileGroupTypes.KANTSU_OPEN;
+    targetTileGroup.tiles.push(candidateTile);
+
+    // If the kan is right after another kan, insert the drawn tile into hand
+    if (player.drawnTile !== null) {
+      player.hand.push(player.drawnTile);
+      player.hand.sort(tileCompare);
+      player.drawnTile = null;
+    }
+    player.hand = player.hand.filter(tile => tile !== candidateTile);
+
+    // Update callTriggerTile
+    this.roundData.callTriggerTile = candidateTile;
+
+    // Check if the player has just kanned
+    if (player.kanFlag === true) {
+      this.roundData.kanCounter++;
+      player.kanFlag = false;
+    }
+
+    // First generate call options, if empty, generate draw options
+    this.optionsBuffer = this.generateKanTriggeredCallOptions(seatWind);
+
+    // Update the callOptionWaitlist
+    this.syncCallOptionWaitlist();
+
+    if (this.optionsBuffer.every(playerOptions => playerOptions.length === 0)) {
+      // If there is no call option generated (Most of the times)
+      // Set the player's kanFlag to true
+      player.kanFlag = true;
+      let drawnTile = this.drawDeadWall(seatWind);
+      // Update optionsBuffer
+      this.optionsBuffer[seatWind] = this.generateDrawOptions(
+        seatWind, drawnTile);
+      // Set phase
+      this.changePhase(serverPhases.WAITING_DRAW_ACTION);
+    } else {
+      // If there are call options generated
+      // Set phase
+      this.changePhase(serverPhases.WAITING_CALL_ACTION);
+    }
+  }
 
   // Action execution helper functions
   proceedToNextDraw() {
@@ -477,9 +529,26 @@ class Game {
         return null;
       }
 
-      // data: candidateGroupIndex
-      // (the index of the group in player's tileGroups array)
+      // data: candidateInfo: Array of: groupIndex: index, tile: tile
+      //       acceptedCandidateInfo: groupIndex: index, tile: tile
       case actionTypes.OPTION_KAN_OPEN_DRAW: {
+        let drawnHand = [...hand, triggerTile].sort(tileCompare);
+        // Find all KOUTSU forming tile type in player's tileGroups
+        let indexedKoutsuTileTypes = tileGroups.map(group =>
+          group.type === tileGroupTypes.KOUTSU ?
+            tileTypeOf(group.tiles[0]) : null);
+        let candidateInfo = [];
+        indexedKoutsuTileTypes.forEach((tileType, index) => {
+          let candidate = drawnHand.find(tile => tileTypeOf(tile) === tileType);
+          if (candidate !== undefined) {
+            candidateInfo.push({ groupIndex: index, tile: candidate });
+          }
+        });
+        if (candidateInfo.length !== 0) {
+          return new Option(type, seatWind, {
+            candidateInfo, acceptedCandidate: null
+          });
+        }
         return null;
       }
 
@@ -674,9 +743,15 @@ class Game {
                 type: actionType,
                 seatWind,
                 data: { acceptedCandidate: option.data.candidateTiles[0] }
-              })
+              });
             }
-            case actionTypes.OPTION_KAN_OPEN_DRAW: break;
+            case actionTypes.OPTION_KAN_OPEN_DRAW: {
+              this.transform({
+                type: actionType,
+                seatWind,
+                data: { acceptedCandidate: option.data.candidateInfo[0] }
+              });
+            }
             case actionTypes.OPTION_DISCARD: {
               let randIndex = Math.floor(Math.random() * hand.length);
               this.transform({
