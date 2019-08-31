@@ -435,8 +435,7 @@ class GameWorld {
 
           } else if (game.optionTypeOf(action) === actionTypes.CALL_ACTION) {
             // Case 2: Call action transformed, pending for other call actions
-            // Case 4: Call action transformed, next draw options are
-            // generated
+            // Case 4: Call action transformed, next draw options are generated
 
             // Update option status based on the incoming action (this 
             // should also update the corresponding option status in 

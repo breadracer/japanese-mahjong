@@ -95,6 +95,8 @@ class Game {
     this.callOptionWaitlist = [...Array(3).keys()].map(() =>
       [...Array(maxPlayers).keys()].map(() => []));
 
+    this.endRoundTurnSnapshots = Array(maxPlayers).fill([]);
+
   }
 
 
@@ -143,7 +145,11 @@ class Game {
         break;
       }
 
-      case actionTypes.ACTION_RON: {
+      case actionTypes.ACTION_RON_DISCARD: {
+        break;
+      }
+
+      case actionTypes.ACTION_RON_KAN: {
         break;
       }
     }
@@ -218,7 +224,7 @@ class Game {
   chii(seatWind, acceptedCandidate, tile) {
     let player = this.playersData[seatWind];
     player.tileGroups.push(new Group(
-      tileGroupTypes.SHUNTSU,
+      tileGroupTypes.SHUNTSU_OPEN,
       this.roundData.turnCounter,
       [...acceptedCandidate, tile]
     ));
@@ -240,7 +246,7 @@ class Game {
   pon(seatWind, acceptedCandidate, tile) {
     let player = this.playersData[seatWind];
     player.tileGroups.push(new Group(
-      tileGroupTypes.KOUTSU,
+      tileGroupTypes.KOUTSU_OPEN,
       this.roundData.turnCounter,
       [...acceptedCandidate, tile]
     ));
@@ -413,7 +419,8 @@ class Game {
       acc.concat(val), []);
     callOptions.forEach(option => {
       switch (option.type) {
-        case actionTypes.OPTION_RON: {
+        case actionTypes.OPTION_RON_DISCARD:
+        case actionTypes.OPTION_RON_KAN: {
           this.callOptionWaitlist[0][option.seatWind].push(option);
           break;
         }
@@ -533,9 +540,9 @@ class Game {
       //       acceptedCandidateInfo: groupIndex: index, tile: tile
       case actionTypes.OPTION_KAN_OPEN_DRAW: {
         let drawnHand = [...hand, triggerTile].sort(tileCompare);
-        // Find all KOUTSU forming tile type in player's tileGroups
+        // Find all KOUTSU_OPEN forming tile type in player's tileGroups
         let indexedKoutsuTileTypes = tileGroups.map(group =>
-          group.type === tileGroupTypes.KOUTSU ?
+          group.type === tileGroupTypes.KOUTSU_OPEN ?
             tileTypeOf(group.tiles[0]) : null);
         let candidateInfo = [];
         indexedKoutsuTileTypes.forEach((tileType, index) => {
@@ -663,12 +670,81 @@ class Game {
       }
 
       // TODO: Design data format later
-      case actionTypes.OPTION_RON: {
+      case actionTypes.OPTION_RON_DISCARD: {
+        let parseResults = [];
+        // For normal patterns
+        this.parseTilesNormal(hand, 4, 1, parseResults);
+
+        // For Chiitoitsu
+
+        // For Kokushimusou
+
+        return null;
+      }
+
+      case actionTypes.OPTION_RON_KAN: {
         return null;
       }
     }
   }
 
+  // Hand parsing functions
+  // generateRonOption() {
+
+  // }
+
+  parseTilesNormal(tiles, numLeftMentsu, numLeftToitsu, prevParts, results) {
+    if (tiles.length === 0) {
+      results.push(prevParts);
+    } else {
+      // Try match the first tile with the following tiles
+      let currTileType = tileTypeOf(tiles[0]);
+      let currTileSuit = tileSuitOf(tiles[0]);
+      let currTileNum = tileNumOf(tiles[0]);
+
+      let toitsu = [tiles[0]], shuntsu = [tiles[0]], koutsu = [tiles[0]];
+
+      // Find number of consecutive tiles of same type
+      let numSameTiles = 1;
+      for (let i = 1; i < tiles.length &&
+        tileTypeOf(tiles[i]) === currTileType && numSameTiles < 3; i++) {
+        numSameTiles++;
+        if (numSameTiles === 2) {
+          toitsu.push(tiles[i]);
+        }
+        koutsu.push(tiles[i]);
+      }
+
+      // Find a three-sequence if there exists one
+      let tileNumDiff = 1;
+      for (let i = 1; i < tiles.length &&
+        tileSuitOf(tiles[i]) === currTileSuit && tileNumDiff < 3; i++) {
+        if (tileNumOf(tiles[i]) === currTileNum + tileNumDiff) {
+          shuntsu.push(tiles[i]);
+          tileNumDiff++;
+        }
+      }
+
+      // Parse the rest of the tiles recursively
+      if (shuntsu.length === 3 && numLeftMentsu > 0) {
+        let leftTiles = tiles.filter(tile => !shuntsu.includes(tile));
+        this.parseTilesNormal(leftTiles, numLeftMentsu - 1, numLeftToitsu,
+          [...prevParts, shuntsu], results);
+      }
+
+      if (koutsu.length === 3 && numLeftMentsu > 0) {
+        let leftTiles = tiles.filter(tile => !koutsu.includes(tile));
+        this.parseTilesNormal(leftTiles, numLeftMentsu - 1, numLeftToitsu,
+          [...prevParts, koutsu], results);
+      }
+
+      if (toitsu.length === 2 && numLeftToitsu > 0) {
+        let leftTiles = tiles.filter(tile => !toitsu.includes(tile));
+        this.parseTilesNormal(leftTiles, numLeftMentsu, numLeftToitsu - 1,
+          [...prevParts, toitsu], results);
+      }
+    }
+  }
 
   // Main option generators
   generateDrawOptions(drawSeatWind, tile) {
@@ -689,7 +765,8 @@ class Game {
       actionTypes.OPTION_CHII,
       actionTypes.OPTION_PON,
       actionTypes.OPTION_KAN_OPEN_CALL,
-      actionTypes.OPTION_RON,
+      actionTypes.OPTION_RON_DISCARD,
+      actionTypes.OPTION_RON_KAN,
     ];
     return Object.values(winds).map(seatWind =>
       seatWind === discardSeatWind ? []
@@ -783,7 +860,8 @@ class Game {
     // STUPID bots will perform any options they have, prioritizing from RON,
     // KAN_OPEN_CALL, PON, to CHII
     let callOptionTypes = [
-      actionTypes.OPTION_RON,
+      actionTypes.OPTION_RON_DISCARD,
+      actionTypes.OPTION_RON_KAN,
       actionTypes.OPTION_KAN_OPEN_CALL,
       actionTypes.OPTION_PON,
       actionTypes.OPTION_CHII
@@ -803,7 +881,8 @@ class Game {
           option.status = optionStatus.REJECTED;
         } else {
           switch (option.type) {
-            case actionTypes.OPTION_RON: break;
+            case actionTypes.OPTION_RON_DISCARD: break;
+            case actionTypes.OPTION_RON_KAN: break;
             case actionTypes.OPTION_KAN_OPEN_CALL:
             case actionTypes.OPTION_PON:
             case actionTypes.OPTION_CHII: {
@@ -873,7 +952,7 @@ class Game {
       shuffledTiles = shuffle(fourPlayersTiles);
       // this.roundData.liveWall = shuffledTiles.slice(52, 122);
       this.roundData.liveWall = [
-        72,72,72,72,72,72,76,76,76,76,76,80,80,80,80,80
+        72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
       ]
       this.roundData.deadWall = shuffledTiles.slice(122, 136);
     } else if (this.config.maxPlayers === 3) {
