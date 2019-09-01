@@ -27,6 +27,17 @@ module.exports.optionStatus = {
   REJECTED: 'REJECTED'
 }
 
+module.exports.callTriggerTypes = {
+  DISCARD: 0,
+  KAN_OPEN_DRAW: 1,
+  KAN_CLOSED: 2
+}
+
+module.exports.drawTriggerTypes = {
+  DRAW: 3,
+  RINSHAN: 4
+}
+
 module.exports.actionTypes = {
   DRAW_OPTION: 0, CALL_OPTION: 1, DRAW_ACTION: 2, CALL_ACTION: 3,
 
@@ -42,7 +53,8 @@ module.exports.actionTypes = {
   OPTION_PON: 11,
   OPTION_KAN_OPEN_CALL: 12,
   OPTION_RON_DISCARD: 13,
-  OPTION_RON_KAN: 14,
+  OPTION_RON_KAN_OPEN_DRAW: 14,
+  OPTION_RON_KAN_CLOSED: 15,
 
   ACTION_DISCARD: 20,
   ACTION_KAN_OPEN_DRAW: 21,
@@ -56,10 +68,11 @@ module.exports.actionTypes = {
   ACTION_PON: 31,
   ACTION_KAN_OPEN_CALL: 32,
   ACTION_RON_DISCARD: 33,
-  ACTION_RON_KAN: 34,
+  ACTION_RON_KAN_OPEN_DRAW: 34,
+  ACTION_RON_KAN_CLOSED: 35,
 
   // Special action to reject all other call options
-  ACTION_SKIP_CALL: 35,
+  ACTION_SKIP_CALL: 36,
 };
 
 module.exports.tileTypes = {
@@ -101,7 +114,8 @@ module.exports.tileGroupTypes = {
   // Formed in player's hand
   SHUNTSU_CLOSED: 'SHUNTSU_CLOSED',
   KOUTSU_CLOSED: 'KOUTSU_CLOSED',
-  TOITSU: 'TOITSU'
+  TOITSU: 'TOITSU',
+  YAO: 'YAO'
 }
 
 module.exports.messageTypes = {

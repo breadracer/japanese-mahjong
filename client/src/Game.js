@@ -30,7 +30,7 @@ class Game extends React.Component {
       let { data } = discardOption;
       let playerSelf = this.props.playersData[this.props.seatWind];
       let discardables = [...playerSelf.hand, playerSelf.drawnTile].filter(
-        tile => tile && !data.forbiddenTiles.includes(tile));
+        tile => tile !== null && !data.forbiddenTiles.includes(tile));
       discardOptionList = <div>
         {discardables.map((tile, i) =>
           <button key={i} onClick={this.handleAction.bind(
@@ -116,7 +116,14 @@ class Game extends React.Component {
                     tilesToStringWall([...group, callTriggerTile])
                   }</button>)}</li>;
 
-          case actionTypes.OPTION_RON: return null;
+          case actionTypes.OPTION_RON_DISCARD:
+            return <li key={i}>
+              <button onClick={this.handleAction.bind(
+                this, optionToActionType(option.type), option.data
+              )}>RON</button></li>;
+
+          case actionTypes.OPTION_RON_KAN_OPEN_DRAW: return null;
+          case actionTypes.OPTION_RON_KAN_CLOSED: return null;
           default: return null;
         }
       }).filter(option => option)}

@@ -37,7 +37,8 @@ export const actionTypes = {
   OPTION_PON: 11,
   OPTION_KAN_OPEN_CALL: 12,
   OPTION_RON_DISCARD: 13,
-  OPTION_RON_KAN: 14,
+  OPTION_RON_KAN_OPEN_DRAW: 14,
+  OPTION_RON_KAN_CLOSED: 15,
 
   ACTION_DISCARD: 20,
   ACTION_KAN_OPEN_DRAW: 21,
@@ -51,10 +52,11 @@ export const actionTypes = {
   ACTION_PON: 31,
   ACTION_KAN_OPEN_CALL: 32,
   ACTION_RON_DISCARD: 33,
-  ACTION_RON_KAN: 34,
+  ACTION_RON_KAN_OPEN_DRAW: 34,
+  ACTION_RON_KAN_CLOSED: 35,
 
   // Special action to reject all other call options
-  ACTION_SKIP_CALL: 35,
+  ACTION_SKIP_CALL: 36,
 };
 
 export const tileTypes = {

@@ -236,8 +236,7 @@ class GameWorld {
               if (allRejected) {
                 game.proceedToNextDraw();
               } else {
-                transformables.forEach(transformable =>
-                  game.transform(transformable));
+                game.transform(transformables);
               }
 
             }
@@ -279,7 +278,7 @@ class GameWorld {
           let players = game.getPlayersData();
           if (game.optionTypeOf(action) === actionTypes.DRAW_ACTION) {
             // First, transform the game, check if the round-turn/game has ended
-            game.transform(action);
+            game.transform([action]);
 
             if (game.shouldEndGame()) {
               // TODO: Send message PUSH_END_GAME
@@ -304,8 +303,7 @@ class GameWorld {
                 if (allRejected) {
                   game.proceedToNextDraw();
                 } else {
-                  transformables.forEach(transformable =>
-                    game.transform(transformable));
+                  game.transform(transformables);
                 }
 
                 // Two cases:
@@ -349,8 +347,7 @@ class GameWorld {
                       if (allRejected) {
                         game.proceedToNextDraw();
                       } else {
-                        transformables.forEach(transformable =>
-                          game.transform(transformable));
+                        game.transform(transformables);
                       }
                     }
                     // Two cases:
@@ -408,8 +405,7 @@ class GameWorld {
                     if (allRejected) {
                       game.proceedToNextDraw();
                     } else {
-                      transformables.forEach(transformable =>
-                        game.transform(transformable));
+                      game.transform(transformables);
                     }
                   }
                   // Two cases:
@@ -467,8 +463,7 @@ class GameWorld {
             if (allRejected) {
               game.proceedToNextDraw();
             } else {
-              transformables.forEach(transformable =>
-                game.transform(transformable));
+              game.transform(transformables);
             }
 
             // Two cases:
@@ -512,8 +507,7 @@ class GameWorld {
                   if (allRejected) {
                     game.proceedToNextDraw();
                   } else {
-                    transformables.forEach(transformable =>
-                      game.transform(transformable));
+                    game.transform(transformables);
                   }
                 }
                 // Two cases:

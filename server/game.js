@@ -2,7 +2,7 @@
 // For further compatability of 3p games, add child classes for the Game class
 
 const {
-  actionTypes, tileTypes, redDoraTileValues,
+  actionTypes, tileTypes, redDoraTileValues, callTriggerTypes,
   serverPhases, optionStatus, winds, tileGroupTypes
 } = require('./constants');
 
@@ -49,6 +49,29 @@ function Option(type, seatWind, data) {
   this.status = optionStatus.PENDING;
 }
 
+function Yaku(type, han) {
+  this.type = type;
+  this.han = han;
+}
+
+function Yakuman(type, multiplier) {
+  this.type = type;
+  this.multiplier = multiplier;
+}
+
+function WinResult(seatWind, triggerSeatWind, parsedTileGroups,
+  yakus, yakumans, han, fu, pointValue) {
+  this.seatWind = seatWind;
+  this.triggerSeatWind = triggerSeatWind;
+
+  this.parsedTileGroups = parsedTileGroups; // Array of Groups
+  this.yakus = yakus; // Array of Yakus
+  this.yakumans = yakumans; // Array of Yakumans
+  this.han = han;
+  this.fu = fu;
+  this.pointValue = pointValue;
+}
+
 class Game {
   constructor({ maxPlayers, endRoundWind, usernames, botnames }) {
     this.config = {
@@ -60,7 +83,8 @@ class Game {
     this.globalData = {
       // Round counters
       roundWind: 0,
-      roundWindCounter: 0, // Start from 0, index for the EAST player (1st move)
+      roundWindCounter: 0, // Start from 0, index for the EAST player
+
 
       // Server-side only
       endFlag: false // Indicate the end of the whole game
@@ -95,64 +119,74 @@ class Game {
     this.callOptionWaitlist = [...Array(3).keys()].map(() =>
       [...Array(maxPlayers).keys()].map(() => []));
 
-    this.endRoundTurnSnapshots = Array(maxPlayers).fill([]);
+    this.winResultsBuffer = Array(maxPlayers);
 
   }
 
 
   // Main action handler, will reset optionsBuffer and callOptionWaitlist
-  transform(action) {
+  transform(actions) {
     this.changePhase(serverPhases.PROCESSING_ACTION);
-    console.log(`Transforming ${JSON.stringify(action)}`);
-    let { type, seatWind, data } = action;
-    switch (type) {
-      // data: tile
-      case actionTypes.ACTION_DISCARD: {
-        this.discard(seatWind, data.tile);
-        break;
-      }
+    console.log(`Transforming ${JSON.stringify(actions)}`);
 
-      case actionTypes.ACTION_KAN_CLOSED: {
-        this.kanClosed(seatWind, data.acceptedCandidate);
-        break;
+    let numLeftAction = actions.length;
+    actions.forEach(action => {
+      numLeftAction--;
+      let { type, seatWind, data } = action;
+      switch (type) {
+        // data: tile
+        case actionTypes.ACTION_DISCARD: {
+          this.discard(seatWind, data.tile);
+          break;
+        }
+  
+        case actionTypes.ACTION_KAN_CLOSED: {
+          this.kanClosed(seatWind, data.acceptedCandidate);
+          break;
+        }
+  
+        case actionTypes.ACTION_KAN_OPEN_DRAW: {
+          this.kanOpenDraw(seatWind, data.acceptedCandidateInfo);
+          break;
+        }
+  
+        case actionTypes.ACTION_RIICHI: {
+          break;
+        }
+  
+        case actionTypes.ACTION_TSUMO: {
+          break;
+        }
+  
+        case actionTypes.ACTION_CHII: {
+          this.chii(seatWind, data.acceptedCandidate, data.triggerTile);
+          break;
+        }
+  
+        case actionTypes.ACTION_PON: {
+          this.pon(seatWind, data.acceptedCandidate, data.triggerTile);
+          break;
+        }
+  
+        case actionTypes.ACTION_KAN_OPEN_CALL: {
+          this.kanOpenCall(seatWind, data.acceptedCandidate, data.triggerTile);
+          break;
+        }
+  
+        case actionTypes.ACTION_RON_DISCARD: {
+          this.ronDiscard(seatWind, data.winResult, numLeftAction);
+          break;
+        }
+  
+        case actionTypes.ACTION_RON_KAN_OPEN_DRAW: {
+          break;
+        }
+  
+        case actionTypes.ACTION_RON_KAN_CLOSED: {
+          break;
+        }
       }
-
-      case actionTypes.ACTION_KAN_OPEN_DRAW: {
-        this.kanOpenDraw(seatWind, data.acceptedCandidateInfo);
-        break;
-      }
-
-      case actionTypes.ACTION_RIICHI: {
-        break;
-      }
-
-      case actionTypes.ACTION_TSUMO: {
-        break;
-      }
-
-      case actionTypes.ACTION_CHII: {
-        this.chii(seatWind, data.acceptedCandidate, data.triggerTile);
-        break;
-      }
-
-      case actionTypes.ACTION_PON: {
-        this.pon(seatWind, data.acceptedCandidate, data.triggerTile);
-        break;
-      }
-
-      case actionTypes.ACTION_KAN_OPEN_CALL: {
-        this.kanOpenCall(seatWind, data.acceptedCandidate, data.triggerTile);
-        break;
-      }
-
-      case actionTypes.ACTION_RON_DISCARD: {
-        break;
-      }
-
-      case actionTypes.ACTION_RON_KAN: {
-        break;
-      }
-    }
+    });
   }
 
 
@@ -173,7 +207,7 @@ class Game {
 
 
   // Action executor functions
-  // If call options generated, optionsBuffer and callOptionWaitlist will be set
+  // If call options generated, will set optionsBuffer and callOptionWaitlist
   // Otherwise draw options are generated, optionsBuffer will be set
   // In both cases phase will be reset
   discard(seatWind, tile) {
@@ -183,7 +217,8 @@ class Game {
     // If the tile is not the just drawn tile, update the hand
     if (player.drawnTile !== tile) {
       player.hand.splice(player.hand.indexOf(tile), 1);
-      // If the discard is right after call action (no drawn tile), just discard
+      // If the discard is right after call action (no
+      // drawn tile), just discard
       if (player.drawnTile !== null) {
         player.hand.push(player.drawnTile);
         player.hand.sort(tileCompare);
@@ -318,12 +353,14 @@ class Game {
     }
 
     // First generate call options, if empty, generate draw options
-    this.optionsBuffer = this.generateKanTriggeredCallOptions(seatWind);
+    this.optionsBuffer = this.generateKanTriggeredCallOptions(
+      seatWind, actionTypes.ACTION_KAN_CLOSED);
 
     // Update the callOptionWaitlist
     this.syncCallOptionWaitlist();
 
-    if (this.optionsBuffer.every(playerOptions => playerOptions.length === 0)) {
+    if (this.optionsBuffer.every(playerOptions =>
+      playerOptions.length === 0)) {
       // If there is no call option generated (Most of the times)
       // Set the player's kanFlag to true
       player.kanFlag = true;
@@ -367,12 +404,14 @@ class Game {
     }
 
     // First generate call options, if empty, generate draw options
-    this.optionsBuffer = this.generateKanTriggeredCallOptions(seatWind);
+    this.optionsBuffer = this.generateKanTriggeredCallOptions(
+      seatWind, actionTypes.ACTION_KAN_OPEN_DRAW);
 
     // Update the callOptionWaitlist
     this.syncCallOptionWaitlist();
 
-    if (this.optionsBuffer.every(playerOptions => playerOptions.length === 0)) {
+    if (this.optionsBuffer.every(playerOptions =>
+      playerOptions.length === 0)) {
       // If there is no call option generated (Most of the times)
       // Set the player's kanFlag to true
       player.kanFlag = true;
@@ -386,6 +425,13 @@ class Game {
       // If there are call options generated
       // Set phase
       this.changePhase(serverPhases.WAITING_CALL_ACTION);
+    }
+  }
+
+  ronDiscard(seatWind, winResult, numLeftRon) {
+    this.winResultsBuffer[seatWind] = winResult;
+    if (numLeftRon === 0) {
+      this.endRoundTurn();
     }
   }
 
@@ -420,7 +466,8 @@ class Game {
     callOptions.forEach(option => {
       switch (option.type) {
         case actionTypes.OPTION_RON_DISCARD:
-        case actionTypes.OPTION_RON_KAN: {
+        case actionTypes.OPTION_RON_KAN_OPEN_DRAW:
+        case actionTypes.OPTION_RON_KAN_CLOSED: {
           this.callOptionWaitlist[0][option.seatWind].push(option);
           break;
         }
@@ -438,13 +485,13 @@ class Game {
   }
 
   scanTransformableCallActions() {
-    // Idea: For every received user or bot call action, this function should be
-    // called to determine if it is the time to transform the game based on
+    // Idea: For every received user or bot call action, this function should 
+    // be called to determine if it is the time to transform the game based on
     // current callOptionWaitlist status
 
     // Transform condition: start looping from the tertiary options to the
-    // primary options, execute the option that has no higher-or-equal-priority 
-    // option that is PENDING or ACCEPTED
+    // primary options, execute the option that has no 
+    // higher-or-equal-priority option that is PENDING or ACCEPTED
 
     // NOTE: This algorithm can be improved
     console.log(`Scanning callOptionWaitlist ${
@@ -472,8 +519,9 @@ class Game {
     }
     if (highestClearedPriority === highestNonEmptyPriority) {
       let acceptPriority = this.callOptionWaitlist.findIndex(
-        priorityOptions => priorityOptions.reduce((acc, val) => acc.concat(val),
-          []).some(option => option.status === optionStatus.ACCEPTED));
+        priorityOptions => priorityOptions.reduce((acc, val) =>
+          acc.concat(val), []).some(option =>
+            option.status === optionStatus.ACCEPTED));
       if (acceptPriority !== -1) {
         // If there is any accepted option
         transformableOptions = this.callOptionWaitlist[acceptPriority].reduce(
@@ -546,7 +594,8 @@ class Game {
             tileTypeOf(group.tiles[0]) : null);
         let candidateInfo = [];
         indexedKoutsuTileTypes.forEach((tileType, index) => {
-          let candidate = drawnHand.find(tile => tileTypeOf(tile) === tileType);
+          let candidate = drawnHand.find(tile =>
+            tileTypeOf(tile) === tileType);
           if (candidate !== undefined) {
             candidateInfo.push({ groupIndex: index, tile: candidate });
           }
@@ -669,33 +718,96 @@ class Game {
         return null;
       }
 
-      // TODO: Design data format later
-      case actionTypes.OPTION_RON_DISCARD: {
-        let parseResults = [];
-        // For normal patterns
-        this.parseTilesNormal(hand, 4, 1, parseResults);
+      // data: WinResult
+      case actionTypes.OPTION_RON_DISCARD:
+        return this.generateRonOption(seatWind,
+          triggerTile, triggerSeatWind, callTriggerTypes.DISCARD);
 
-        // For Chiitoitsu
 
-        // For Kokushimusou
-
+      case actionTypes.OPTION_RON_KAN_OPEN_DRAW: {
         return null;
       }
 
-      case actionTypes.OPTION_RON_KAN: {
+      case actionTypes.OPTION_RON_KAN_CLOSED: {
         return null;
       }
     }
   }
 
-  // Hand parsing functions
-  // generateRonOption() {
+  // RON related operations
+  generateRonOption(seatWind, triggerTile, triggerSeatWind, callTriggerType) {
+    let { hand, tileGroups, discardPile } = this.playersData[seatWind];
+    let formedHand = [...hand, triggerTile].sort(tileCompare);
 
-  // }
+    // First, parse the given hand into tile groups (upon 3 pattern types)
+    let parsedTileGroups = [];
 
-  parseTilesNormal(tiles, numLeftMentsu, numLeftToitsu, prevParts, results) {
+    // For normal patterns
+    let numLeftMentsu = 4 - tileGroups.length;
+    let numLeftToitsu = 1;
+    this.parseTilesNormal(
+      formedHand, numLeftMentsu, numLeftToitsu,
+      [], parsedTileGroups, seatWind
+    );
+    parsedTileGroups.forEach(result =>
+      tileGroups.forEach(group => result.push(group)));
+
+    if (tileGroups.length === 0) {
+      // For Chiitoitsu
+      this.parseTilesChiitoitsu(formedHand, parsedTileGroups, seatWind);
+
+      // For Kokushimusou
+      this.parseTilesKokushimusou(formedHand, parsedTileGroups, seatWind);
+    }
+
+    if (parsedTileGroups.length !== 0) {
+      // Then, for each of the parsed result, compute the yakus of each
+      // and retain the one that generate the highest score
+      let maxScore = 0;
+      let yakumanFlag = false;
+      let optimalWinResult = null;
+
+      for (let tileGroup of parsedTileGroups) {
+        let currWinResult = this.calculateWinResult(
+          tileGroup, seatWind, triggerSeatWind);
+        let currScore = currWinResult.pointValue;
+
+        // NOTE: If there is any tileGroup that generates yakumans, the 
+        // resulting returned WinResult must include yakumans
+        if (!yakumanFlag) {
+          if (currWinResult.yakumans.length !== 0) {
+            yakumanFlag = true;
+          }
+          if (currScore >= maxScore) {
+            maxScore = currScore;
+            optimalWinResult = currWinResult;
+          }
+        } else if (currWinResult.yakumans.length !== 0 &&
+          currScore >= maxScore) {
+          maxScore = currScore;
+          optimalWinResult = currWinResult;
+        }
+      }
+
+      // Index: callTriggerType (0 ~ 2)
+      let optionTypes = [
+        actionTypes.OPTION_RON_DISCARD,
+        actionTypes.OPTION_RON_KAN_OPEN_DRAW,
+        actionTypes.OPTION_RON_KAN_CLOSED
+      ];
+      return new Option(optionTypes[callTriggerType],
+        seatWind, { winResult: optimalWinResult });
+
+    } else {
+      return null;
+    }
+  }
+
+  // Tile group parsing functions
+  parseTilesNormal(tiles, numLeftMentsu, numLeftToitsu,
+    prevParts, parsedTileGroups, seatWind) {
     if (tiles.length === 0) {
-      results.push(prevParts);
+      parsedTileGroups.push(prevParts);
     } else {
       // Try match the first tile with the following tiles
       let currTileType = tileTypeOf(tiles[0]);
@@ -729,22 +841,94 @@ class Game {
       if (shuntsu.length === 3 && numLeftMentsu > 0) {
         let leftTiles = tiles.filter(tile => !shuntsu.includes(tile));
         this.parseTilesNormal(leftTiles, numLeftMentsu - 1, numLeftToitsu,
-          [...prevParts, shuntsu], results);
+          [...prevParts, new Group(tileGroupTypes.SHUNTSU_CLOSED,
+            seatWind, shuntsu)], parsedTileGroups, seatWind);
       }
 
       if (koutsu.length === 3 && numLeftMentsu > 0) {
         let leftTiles = tiles.filter(tile => !koutsu.includes(tile));
         this.parseTilesNormal(leftTiles, numLeftMentsu - 1, numLeftToitsu,
-          [...prevParts, koutsu], results);
+          [...prevParts, new Group(tileGroupTypes.KOUTSU_CLOSED,
+            seatWind, koutsu)], parsedTileGroups, seatWind);
       }
 
       if (toitsu.length === 2 && numLeftToitsu > 0) {
         let leftTiles = tiles.filter(tile => !toitsu.includes(tile));
         this.parseTilesNormal(leftTiles, numLeftMentsu, numLeftToitsu - 1,
-          [...prevParts, toitsu], results);
+          [...prevParts, new Group(tileGroupTypes.TOITSU,
+            seatWind, toitsu)], parsedTileGroups, seatWind);
       }
     }
   }
+
+  parseTilesChiitoitsu(tiles, parsedTileGroups, seatWind) {
+    // Assume length of the tiles is 14
+    let toitsuList = [];
+    let prevTileType = -1;
+    for (let i = 0; i < tiles.length; i += 2) {
+      let currTileType = tileTypeOf(tiles[i]);
+      let nextTileType = tileTypeOf(tiles[i + 1]);
+      if (currTileType === nextTileType && currTileType !== prevTileType) {
+        prevTileType = currTileType;
+        toitsuList.push(new Group(tileGroupTypes.TOITSU,
+          seatWind, [tiles[i], tiles[i + 1]]));
+      } else {
+        break;
+      }
+    }
+
+    if (toitsuList.length === 7) {
+      toitsuList.forEach(toitsu => parsedTileGroups.push(toitsu));
+    }
+  }
+
+  parseTilesKokushimusou(tiles, parsedTileGroups, seatWind) {
+    // Assume length of the tiles is 14
+    let yaoList = [];
+    let prevTileType = -1;
+    let repeatedFlag = false;
+    for (let i = 0; i < tiles.length; i++) {
+      let currTileType = tileTypeOf(tiles[i]);
+      let currTileNum = tileNumOf(tiles[i]);
+      let currTileSuit = tileSuitOf(tiles[i]);
+      if (currTileSuit === tileTypes.JIHAI ||
+        currTileNum === 1 || currTileNum === 9) {
+        // For repeated Yao tiles
+        if (currTileType === prevTileType) {
+          if (repeatedFlag === true) {
+            break;
+          } else {
+            repeatedFlag = true;
+          }
+        }
+        yaoList.push(new Group(tileGroupTypes.YAO, seatWind, [tiles[i]]));
+      } else {
+        break;
+      }
+    }
+
+    if (yaoList.length === 14) {
+      yaoList.forEach(yao => parsedTileGroups.push(yao));
+    }
+  }
+
+
+  // Score computations for given tile groups
+  calculateWinResult(tileGroups, seatWind, triggerSeatWind) {
+    let han = 0, fu = 0, pointValue = 0, yakus = [], yakumans = [];
+
+    // Calculate Han from Yakus (or Yakumans)
+
+    // Calculate Han from Doras
+
+    // Calculate Fu
+
+    // Calculate point value
+
+    return new WinResult(seatWind, triggerSeatWind, tileGroups,
+      yakus, yakumans, han, fu, pointValue);
+  }
+
 
   // Main option generators
   generateDrawOptions(drawSeatWind, tile) {
@@ -765,8 +949,7 @@ class Game {
       actionTypes.OPTION_CHII,
       actionTypes.OPTION_PON,
       actionTypes.OPTION_KAN_OPEN_CALL,
-      actionTypes.OPTION_RON_DISCARD,
-      actionTypes.OPTION_RON_KAN,
+      actionTypes.OPTION_RON_DISCARD
     ];
     return Object.values(winds).map(seatWind =>
       seatWind === discardSeatWind ? []
@@ -775,9 +958,14 @@ class Game {
             option !== null));
   }
 
-  generateKanTriggeredCallOptions(kanSeatWind) {
-    // TODO: More on this later
-    return Object.values(winds).map(() => []);
+  generateKanTriggeredCallOptions(kanSeatWind, type) {
+    let optionType = type === actionTypes.ACTION_KAN_CLOSED ?
+      actionTypes.OPTION_RON_KAN_CLOSED : actionTypes.OPTION_RON_KAN_OPEN_DRAW;
+    return Object.values(winds).map(seatWind =>
+      seatWind === kanSeatWind ? []
+        : [this.generateOption(optionType, seatWind,
+          this.roundData.callTriggerTile, kanSeatWind)].filter(option =>
+            option !== null));
   }
 
 
@@ -789,8 +977,8 @@ class Game {
     let { hand } = this.playersData[seatWind];
 
     // STUPID bots will perform any options they have, prioritizing TSUMO,
-    // RIICHI over KANs over DISCARD, choices between tile groups and discarding
-    // tiles are performed randomly
+    // RIICHI over KANs over DISCARD, choices between tile groups and 
+    // discarding tiles are performed randomly
     let drawOptionTypes = [
       actionTypes.OPTION_TSUMO,
       actionTypes.OPTION_RIICHI,
@@ -816,28 +1004,28 @@ class Game {
             case actionTypes.OPTION_TSUMO: break;
             case actionTypes.OPTION_RIICHI: break;
             case actionTypes.OPTION_KAN_CLOSED: {
-              this.transform({
+              this.transform([{
                 type: actionType,
                 seatWind,
                 data: { acceptedCandidate: option.data.candidateTiles[0] }
-              });
+              }]);
               break;
             }
             case actionTypes.OPTION_KAN_OPEN_DRAW: {
-              this.transform({
+              this.transform([{
                 type: actionType,
                 seatWind,
                 data: { acceptedCandidateInfo: option.data.candidateInfo[0] }
-              });
+              }]);
               break;
             }
             case actionTypes.OPTION_DISCARD: {
               let randIndex = Math.floor(Math.random() * hand.length);
-              this.transform({
+              this.transform([{
                 type: actionType,
                 seatWind,
                 data: { tile: hand[randIndex] }
-              });
+              }]);
               break;
             }
           }
@@ -861,7 +1049,8 @@ class Game {
     // KAN_OPEN_CALL, PON, to CHII
     let callOptionTypes = [
       actionTypes.OPTION_RON_DISCARD,
-      actionTypes.OPTION_RON_KAN,
+      actionTypes.OPTION_RON_KAN_OPEN_DRAW,
+      actionTypes.OPTION_RON_KAN_CLOSED,
       actionTypes.OPTION_KAN_OPEN_CALL,
       actionTypes.OPTION_PON,
       actionTypes.OPTION_CHII
@@ -882,7 +1071,8 @@ class Game {
         } else {
           switch (option.type) {
             case actionTypes.OPTION_RON_DISCARD: break;
-            case actionTypes.OPTION_RON_KAN: break;
+            case actionTypes.OPTION_RON_KAN_OPEN_DRAW: break;
+            case actionTypes.OPTION_RON_KAN_CLOSED: break;
             case actionTypes.OPTION_KAN_OPEN_CALL:
             case actionTypes.OPTION_PON:
             case actionTypes.OPTION_CHII: {
@@ -950,10 +1140,10 @@ class Game {
     if (this.config.maxPlayers === 4) {
       // Reset the walls
       shuffledTiles = shuffle(fourPlayersTiles);
-      // this.roundData.liveWall = shuffledTiles.slice(52, 122);
-      this.roundData.liveWall = [
-        72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
-      ]
+      this.roundData.liveWall = shuffledTiles.slice(52, 122);
+      // this.roundData.liveWall = [
+      //   72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
+      // ]
       this.roundData.deadWall = shuffledTiles.slice(122, 136);
     } else if (this.config.maxPlayers === 3) {
       throw new Error('Error: 3-player currently unavailable');
@@ -983,21 +1173,23 @@ class Game {
       player.seatWind = index;
       player.discardPile = [];
       player.tileGroups = [];
-      // player.hand = shuffledTiles.slice(
-      //   index * 13, (index + 1) * 13).sort(tileCompare);
-      player.hand = [
-        [27, 31, 35, 39, 43, 54, 58, 73, 77, 81, 85, 86, 87],
+      player.hand = shuffledTiles.slice(
+        index * 13, (index + 1) * 13).sort(tileCompare);
+      // player.hand = [
+      //   [27, 31, 35, 39, 43, 54, 58, 73, 77, 81, 85, 86, 87],
 
-        [18, 22, 26, 30, 34, 38, 42, 46, 50, 53, 57, 61, 65],
+      //   [18, 22, 26, 30, 34, 38, 42, 46, 50, 53, 57, 61, 65],
 
-        [3, 7, 11, 15, 19, 23, 74, 75, 78, 79, 82, 83, 84],
-        [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 17],
+      //   [3, 7, 11, 15, 19, 23, 74, 75, 78, 79, 82, 83, 84],
+      //   [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 17],
 
-      ][index]
+      // ][index]
     });
 
-    // Resolve first turn's options and reset optionsBuffer
+    // Resolve first turn's options and reset buffers
     this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
+    this.syncCallOptionWaitlist();
+    this.winResultsBuffer = Array(this.config.maxPlayers);
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
     this.optionsBuffer[turnCounter] = this.generateDrawOptions(
@@ -1038,6 +1230,7 @@ class Game {
   shouldEndGame() { return this.globalData.endFlag; }
 
 }
+
 
 // Fisher-Yates Shuffle
 function shuffle(arr) {
