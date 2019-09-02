@@ -194,4 +194,7 @@ module.exports.messageTypes = {
   // game
   PUSH_UPDATE_GAME: 'PUSH_UPDATE_GAME',
 
+  PUSH_CONTINUE_GAME: 'PUSH_CONTINUE_GAME',
+  PUSH_END_GAME: 'PUSH_END_GAME'
+
 };

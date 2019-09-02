@@ -27,6 +27,33 @@ class GameWorld {
     this.rooms = {}; // roomname -> roomname, usernames, game, owner, size
   }
 
+  // Game related helper functions
+  sendToPlayersContinueGame(game, room) {
+    game.getPlayersData().forEach((player, seatWind) => {
+      if (!player.isBot) {
+        this.sendToOne(messageTypes.PUSH_CONTINUE_GAME, {
+          roomname: room.roomname,
+          // TODO: More on this later
+          game: game.getGameboardInfo(),
+          seatWind
+        }, player.name);
+      }
+    });
+  }
+
+  sendToPlayersEndGame(game, room) {
+    game.getPlayersData().forEach((player, seatWind) => {
+      if (!player.isBot) {
+        this.sendToOne(messageTypes.PUSH_END_GAME, {
+          roomname: room.roomname,
+          // TODO: More on this later
+          game: game.getGameboardInfo(),
+          seatWind
+        }, player.name);
+      }
+    });
+  }
+
   // Main message handler
   async handleMessage({ type, message }, username) {
     // Assume username's session exists
@@ -281,9 +308,11 @@ class GameWorld {
             game.transform([action]);
 
             if (game.shouldEndGame()) {
-              // TODO: Send message PUSH_END_GAME
+              // Send message PUSH_END_GAME
+              this.sendToPlayersEndGame(game, room);
             } else if (game.shouldEndRoundTurn()) {
-              // TODO: Send message PUSH_CONTINUE_GAME
+              // Send message PUSH_CONTINUE_GAME
+              this.sendToPlayersContinueGame(game, room);
             } else {
               // If game not ended, push updated game and options to all users
               if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {

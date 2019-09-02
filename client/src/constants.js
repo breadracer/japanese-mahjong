@@ -9,18 +9,25 @@ export const userStatus = {
   IN_GAME: 'IN_GAME'
 };
 
-export const botTypes = {
-  STUPID: 'Idiot',
-  EASY: 'Random Guy',
-  HARD: 'Saki',
-  // TODO: More types later
+export const gameStatus = {
+  // Game status
+  IN_PROGRESS: 'IN_PROGRESS',
+  END_ROUND_TURN: 'END_ROUND_TURN',
+  END_GAME: 'END_GAME'
 };
 
 export const optionStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED'
-}
+};
+
+export const botTypes = {
+  STUPID: 'Idiot',
+  EASY: 'Random Guy',
+  HARD: 'Saki',
+  // TODO: More types later
+};
 
 export const actionTypes = {
   DRAW_OPTION: 0, CALL_OPTION: 1, DRAW_ACTION: 2, CALL_ACTION: 3,
@@ -114,4 +121,6 @@ export const messageTypes = {
 
   PUSH_UPDATE_GAME: 'PUSH_UPDATE_GAME',
 
+  PUSH_CONTINUE_GAME: 'PUSH_CONTINUE_GAME',
+  PUSH_END_GAME: 'PUSH_END_GAME'
 };

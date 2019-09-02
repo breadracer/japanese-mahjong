@@ -1,7 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 
-import { constants, userStatus, messageTypes } from './constants';
+import { constants, userStatus, messageTypes, gameStatus } from './constants';
 import RoomList from './RoomList';
 import Room from './Room';
 import Game from './Game';
@@ -30,6 +30,9 @@ class Gameboard extends React.Component {
       // In-game page (IN_GAME)
 
       // TODO: Filter out some of the game data later
+      // Game phase data
+      gameStatus: gameStatus.IN_PROGRESS,
+
       // Game data
       roundWind: 0,
       roundWindCounter: 0,
@@ -346,6 +349,7 @@ class Gameboard extends React.Component {
             this.state.roomname === roomname) {
             this.setState({
               status: userStatus.IN_GAME,
+              gameStatus: gameStatus.IN_PROGRESS,
               liveWall,
               deadWall,
               playersData,
@@ -362,6 +366,38 @@ class Gameboard extends React.Component {
           }
         }
         return;
+      }
+
+      // TODO: Display info about round turn status
+      case messageTypes.PUSH_CONTINUE_GAME: {
+        let { roomname, game, seatWind } = message;
+        let playersData = game.playersData;
+        // For users in the target room
+        if ((this.state.status === userStatus.IN_ROOM ||
+          this.state.status === userStatus.IN_GAME) &&
+          this.state.roomname === roomname) {
+          this.setState({
+            gameStatus: gameStatus.END_ROUND_TURN,
+          });
+        } else {
+          console.log('Error: message delivered to the wrong destination');
+        }
+      }
+
+      // TODO: Display info about end game status and exit the game
+      case messageTypes.PUSH_END_GAME: {
+        let { roomname, game, seatWind } = message;
+        let playersData = game.playersData;
+        // For users in the target room
+        if ((this.state.status === userStatus.IN_ROOM ||
+          this.state.status === userStatus.IN_GAME) &&
+          this.state.roomname === roomname) {
+          this.setState({
+            gameStatus: gameStatus.END_GAME,
+          });
+        } else {
+          console.log('Error: message delivered to the wrong destination');
+        }
       }
 
       default: {
@@ -437,6 +473,8 @@ class Gameboard extends React.Component {
           loggedUser={this.props.loggedUser}
           roomname={this.state.roomname}
           game={this.state.game}
+
+          gameStatus={this.state.gameStatus}
 
           liveWall={this.state.liveWall}
           deadWall={this.state.deadWall}

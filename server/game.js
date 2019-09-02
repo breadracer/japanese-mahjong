@@ -1119,6 +1119,8 @@ class Game {
     this.startRoundTurn();
   }
 
+  // This function will be called for the last discard without call options or
+  // for the RON and TSUMO actions are triggered (bot or user)
   endRoundTurn() {
     this.roundData.nextRoundTurnFlag = true;
     // If this is the last turn of the last wind round, end the game
