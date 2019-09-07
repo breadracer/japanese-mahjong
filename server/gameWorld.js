@@ -27,32 +27,6 @@ class GameWorld {
     this.rooms = {}; // roomname -> roomname, usernames, game, owner, size
   }
 
-  // Game related helper functions
-  sendToPlayersContinueGame(game, room) {
-    game.getPlayersData().forEach((player, seatWind) => {
-      if (!player.isBot) {
-        this.sendToOne(messageTypes.PUSH_CONTINUE_GAME, {
-          roomname: room.roomname,
-          // TODO: More on this later
-          game: game.getGameboardInfo(),
-          seatWind
-        }, player.name);
-      }
-    });
-  }
-
-  sendToPlayersEndGame(game, room) {
-    game.getPlayersData().forEach((player, seatWind) => {
-      if (!player.isBot) {
-        this.sendToOne(messageTypes.PUSH_END_GAME, {
-          roomname: room.roomname,
-          // TODO: More on this later
-          game: game.getGameboardInfo(),
-          seatWind
-        }, player.name);
-      }
-    });
-  }
 
   // Main message handler
   async handleMessage({ type, message }, username) {
@@ -194,102 +168,8 @@ class GameWorld {
           // First, push game data and options to all user players.
           // Since the first option is the draw option, only the first
           // mover will receive valid options (draw)
-          let players = game.getPlayersData(); // DO NOT MODIFY
-          players.forEach((player, seatWind) => {
-            if (!player.isBot) {
-              this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                isValid: true,
-                roomname: room.roomname,
-                game: game.getGameboardInfo(),
-                seatWind,
-                options: game.getOptionsBuffer()[seatWind]
-              }, player.name);
-            }
-          });
-
-
-          // Then, if the first drawing player is bot, let it move first
-          // This loop will continue until the first user player can make
-          // an active response to an option (draw or call)
-          // NOTE: The bot loop -- enter when draw options are generated
-          let turnCounter = game.getTurnCounter();
-          while (players[turnCounter].isBot &&
-            game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-            //==========================================================
-            await sleep(4000);
-            game.performBotDrawAction(turnCounter);
-            // Handle other players' call options upon the following cases:
-            // Case 1: only users receive call options
-            //    In this case, break out the loop since the upcoming
-            //    PULL_UPDATE_GAME will be handled by handleMessage() decently
-
-            // Case 2: only bots receive call options
-            //    This case is also easy. Just figure out the bot's move here
-            //    and push the new data and options, continuing the loop
-
-            // Case 3: users and bots both receive call options, and the
-            // dominant option come from the bots
-            //    Decide whether the bots will behave actively upon the option.
-            //    If so, repeat Case 2. Otherwise, behave like Case 1.
-            //    i.e. If bot choose to actively act, directly send the
-            //    outcome game data to the users
-
-            // Case 4: users and bots both receive call options, and the
-            // dominant option come from the users
-            //    First decide whether bots will act actively, then push
-            //    the options to the users like Case 1
-            //    i.e. The true outcome will depend on both users' moves
-            //    and the bots' move
-
-            // Case 5: users and bots both receive call options, and dominant
-            // options are shared among users and bots
-            //    This happens only for multiple RONs. This case is treated
-            //    in the same way as in Case 4
-
-            // Case 6: there is no call options generated
-            //    Do nothing, just continue the loop
-
-            if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-              // First, perform call actions for bots
-              players.forEach((player, seatWind) => {
-                if (player.isBot) {
-                  game.performBotCallAction(seatWind);
-                }
-              });
-              // Check if the bots' action can be transformed directly
-              let {
-                allRejected, transformables
-              } = game.scanTransformableCallActions();
-              if (allRejected) {
-                game.proceedToNextDraw();
-              } else {
-                game.transform(transformables);
-              }
-
-            }
-            // Two cases:
-            // Case 1: The users will receive draw options
-            // Case 2: The users will receive other call options
-            players.forEach((player, seatWind) => {
-              if (!player.isBot) {
-                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                  isValid: true,
-                  roomname: room.roomname,
-                  game: game.getGameboardInfo(),
-                  seatWind,
-                  options: game.getOptionsBuffer()[seatWind]
-                }, player.name);
-              }
-            });
-
-            // Lastly, update the turn counter. If still bot, continue loop
-            turnCounter = game.getTurnCounter();
-            // End of this bots' turn
-            //==========================================================
-          }
-
-
-
+          this.broadcastGameUpdate(game, room);
+          await this.enterBotDrawLoop(game, room);
         } else {
           this.sendToAll(messageTypes.PUSH_START_GAME, { isValid: false });
         }
@@ -307,155 +187,51 @@ class GameWorld {
             // First, transform the game, check if the round-turn/game has ended
             game.transform([action]);
 
-            if (game.shouldEndGame()) {
-              // Send message PUSH_END_GAME
-              this.sendToPlayersEndGame(game, room);
-            } else if (game.shouldEndRoundTurn()) {
-              // Send message PUSH_CONTINUE_GAME
-              this.sendToPlayersContinueGame(game, room);
-            } else {
-              // If game not ended, push updated game and options to all users
-              if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-                // Case 1: Draw action transformed, call options are generated
+            if (await this.shouldStopPlaying(game, room))
+              return;
 
-                // First, perform call actions for bots
-                players.forEach((player, seatWind) => {
-                  if (player.isBot) {
-                    game.performBotCallAction(seatWind);
-                  }
-                });
+            // If game not ended, push updated game and options to all users
+            if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
+              // Case 1: Draw action transformed, call options are generated
 
-                // Check if the bots' action can be transformed directly
-                let {
-                  allRejected, transformables
-                } = game.scanTransformableCallActions();
-                if (allRejected) {
-                  game.proceedToNextDraw();
-                } else {
-                  game.transform(transformables);
+              // First, perform call actions for bots
+              players.forEach((player, seatWind) => {
+                if (player.isBot) {
+                  game.performBotCallAction(seatWind);
                 }
+              });
 
-                // Two cases:
-                // Case 1: Actions are already transformed previously and the
-                //         users will receive draw options
-                // Case 2: Actions are not transformed, users will receive other
-                //         call options
-                players.forEach((player, seatWind) => {
-                  if (!player.isBot) {
-                    this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                      isValid: true,
-                      roomname: room.roomname,
-                      game: game.getGameboardInfo(),
-                      seatWind,
-                      options: game.getOptionsBuffer()[seatWind]
-                    }, player.name);
-                  }
-                });
-
-                // For case 1, enter the bot loop
-                if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                  // Bot draw loop
-                  let turnCounter = game.getTurnCounter();
-                  while (players[turnCounter].isBot &&
-                    game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                    //==========================================================
-                    await sleep(4000);
-                    game.performBotDrawAction(turnCounter);
-
-                    if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-                      // First, perform call actions for bots
-                      players.forEach((player, seatWind) => {
-                        if (player.isBot) {
-                          game.performBotCallAction(seatWind);
-                        }
-                      });
-                      // Check if the bots' action can be transformed directly
-                      let {
-                        allRejected, transformables
-                      } = game.scanTransformableCallActions();
-                      if (allRejected) {
-                        game.proceedToNextDraw();
-                      } else {
-                        game.transform(transformables);
-                      }
-                    }
-                    // Two cases:
-                    // Case 1: The users will receive draw options
-                    // Case 2: The users will receive other call options
-                    players.forEach((player, seatWind) => {
-                      if (!player.isBot) {
-                        this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                          isValid: true,
-                          roomname: room.roomname,
-                          game: game.getGameboardInfo(),
-                          seatWind,
-                          options: game.getOptionsBuffer()[seatWind]
-                        }, player.name);
-                      }
-                    });
-                    turnCounter = game.getTurnCounter();
-                    // End of this bots' turn
-                    //==========================================================
-                  }
-                }
-              } else if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                // Case 3: Draw action transformed, no call option, instead 
-                // next draw options are generated -> go to bot draw loop
-                players.forEach((player, seatWind) => {
-                  if (!player.isBot) {
-                    this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                      isValid: true,
-                      roomname: room.roomname,
-                      game: game.getGameboardInfo(),
-                      seatWind,
-                      options: game.getOptionsBuffer()[seatWind]
-                    }, player.name);
-                  }
-                });
-                // Bot draw loop
-                let turnCounter = game.getTurnCounter();
-                while (players[turnCounter].isBot &&
-                  game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                  //==========================================================
-                  await sleep(4000);
-                  game.performBotDrawAction(turnCounter);
-
-                  if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-                    // First, perform call actions for bots
-                    players.forEach((player, seatWind) => {
-                      if (player.isBot) {
-                        game.performBotCallAction(seatWind);
-                      }
-                    });
-                    // Check if the bots' action can be transformed directly
-                    let {
-                      allRejected, transformables
-                    } = game.scanTransformableCallActions();
-                    if (allRejected) {
-                      game.proceedToNextDraw();
-                    } else {
-                      game.transform(transformables);
-                    }
-                  }
-                  // Two cases:
-                  // Case 1: The users will receive draw options
-                  // Case 2: The users will receive other call options
-                  players.forEach((player, seatWind) => {
-                    if (!player.isBot) {
-                      this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                        isValid: true,
-                        roomname: room.roomname,
-                        game: game.getGameboardInfo(),
-                        seatWind,
-                        options: game.getOptionsBuffer()[seatWind]
-                      }, player.name);
-                    }
-                  });
-                  turnCounter = game.getTurnCounter();
-                  // End of this bots' turn
-                  //==========================================================
-                }
+              // Check if the bots' action can be transformed directly
+              let {
+                allRejected, transformables
+              } = game.scanTransformableCallActions();
+              if (allRejected) {
+                game.proceedToNextDraw();
+              } else {
+                game.transform(transformables);
               }
+
+              // Two cases:
+              // Case 1: Actions are already transformed previously and the
+              //         users will receive draw options
+              // Case 2: Actions are not transformed, users will receive other
+              //         call options
+              this.broadcastGameUpdate(game, room);
+
+              if (await this.shouldStopPlaying(game, room))
+                return;
+
+              // For case 1, enter the bot loop
+              if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+                // Bot draw loop
+                await this.enterBotDrawLoop(game, room);
+              }
+            } else if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+              // Case 3: Draw action transformed, no call option, instead 
+              // next draw options are generated -> go to bot draw loop
+              this.broadcastGameUpdate(game, room);
+              // Bot draw loop
+              await this.enterBotDrawLoop(game, room);
             }
 
           } else if (game.optionTypeOf(action) === actionTypes.CALL_ACTION) {
@@ -500,63 +276,15 @@ class GameWorld {
             //         users will receive draw options
             // Case 2: Actions are not transformed, users will receive other
             //         call options
-            players.forEach((player, seatWind) => {
-              if (!player.isBot) {
-                this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                  isValid: true,
-                  roomname: room.roomname,
-                  game: game.getGameboardInfo(),
-                  seatWind,
-                  options: game.getOptionsBuffer()[seatWind]
-                }, player.name);
-              }
-            });
+            this.broadcastGameUpdate(game, room);
+
+            if (await this.shouldStopPlaying(game, room))
+              return;
 
             // For case 1, enter the bot loop
             if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
               // Bot draw loop
-              let turnCounter = game.getTurnCounter();
-              while (players[turnCounter].isBot &&
-                game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                //==========================================================
-                await sleep(4000);
-                game.performBotDrawAction(turnCounter);
-
-                if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-                  // First, perform call actions for bots
-                  players.forEach((player, seatWind) => {
-                    if (player.isBot) {
-                      game.performBotCallAction(seatWind);
-                    }
-                  });
-                  // Check if the bots' action can be transformed directly
-                  let {
-                    allRejected, transformables
-                  } = game.scanTransformableCallActions();
-                  if (allRejected) {
-                    game.proceedToNextDraw();
-                  } else {
-                    game.transform(transformables);
-                  }
-                }
-                // Two cases:
-                // Case 1: The users will receive draw options
-                // Case 2: The users will receive other call options
-                players.forEach((player, seatWind) => {
-                  if (!player.isBot) {
-                    this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
-                      isValid: true,
-                      roomname: room.roomname,
-                      game: game.getGameboardInfo(),
-                      seatWind,
-                      options: game.getOptionsBuffer()[seatWind]
-                    }, player.name);
-                  }
-                });
-                turnCounter = game.getTurnCounter();
-                // End of this bots' turn
-                //==========================================================
-              }
+              await this.enterBotDrawLoop(game, room);
             }
 
           } else {
@@ -572,6 +300,146 @@ class GameWorld {
 
     }
   }
+
+
+  // Game related helper functions
+  async enterBotDrawLoop(game, room) {
+    let players = game.getPlayersData();
+    // Then, if the first drawing player is bot, let it move first
+    // This loop will continue until the first user player can make
+    // an active response to an option (draw or call)
+    // NOTE: The bot loop -- enter when draw options are generated
+    let turnCounter = game.getTurnCounter();
+    while (players[turnCounter].isBot &&
+      game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+      //==========================================================
+      await sleep(4000);
+      game.performBotDrawAction(turnCounter);
+      // Handle other players' call options upon the following cases:
+      // Case 1: only users receive call options
+      //    In this case, break out the loop since the upcoming
+      //    PULL_UPDATE_GAME will be handled by handleMessage() decently
+
+      // Case 2: only bots receive call options
+      //    This case is also easy. Just figure out the bot's move here
+      //    and push the new data and options, continuing the loop
+
+      // Case 3: users and bots both receive call options, and the
+      // dominant option come from the bots
+      //    Decide whether the bots will behave actively upon the option.
+      //    If so, repeat Case 2. Otherwise, behave like Case 1.
+      //    i.e. If bot choose to actively act, directly send the
+      //    outcome game data to the users
+
+      // Case 4: users and bots both receive call options, and the
+      // dominant option come from the users
+      //    First decide whether bots will act actively, then push
+      //    the options to the users like Case 1
+      //    i.e. The true outcome will depend on both users' moves
+      //    and the bots' move
+
+      // Case 5: users and bots both receive call options, and dominant
+      // options are shared among users and bots
+      //    This happens only for multiple RONs. This case is treated
+      //    in the same way as in Case 4
+
+      // Case 6: there is no call options generated
+      //    Do nothing, just continue the loop
+
+      if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
+        // First, perform call actions for bots
+        players.forEach((player, seatWind) => {
+          if (player.isBot) {
+            game.performBotCallAction(seatWind);
+          }
+        });
+        // Check if the bots' action can be transformed directly
+        let {
+          allRejected, transformables
+        } = game.scanTransformableCallActions();
+        if (allRejected) {
+          game.proceedToNextDraw();
+        } else {
+          game.transform(transformables);
+        }
+
+      }
+      // Two cases:
+      // Case 1: The users will receive draw options
+      // Case 2: The users will receive other call options
+      this.broadcastGameUpdate(game, room);
+      if (await this.shouldStopPlaying(game, room))
+        return;
+
+      // Lastly, update the turn counter. If still bot, continue loop
+      turnCounter = game.getTurnCounter();
+      // End of this bots' turn
+      //==========================================================
+    }
+  }
+
+  broadcastGameUpdate(game, room) {
+    let players = game.getPlayersData(); // DO NOT MODIFY
+    players.forEach((player, seatWind) => {
+      if (!player.isBot) {
+        this.sendToOne(messageTypes.PUSH_UPDATE_GAME, {
+          isValid: true,
+          roomname: room.roomname,
+          game: game.getGameboardInfo(),
+          seatWind,
+          options: game.getOptionsBuffer()[seatWind]
+        }, player.name);
+      }
+    });
+  }
+
+  async sendToPlayersContinueGame(game, room) {
+    game.getPlayersData().forEach((player, seatWind) => {
+      if (!player.isBot) {
+        this.sendToOne(messageTypes.PUSH_CONTINUE_GAME, {
+          roomname: room.roomname,
+          // TODO: More on this later
+          roundTurnScoresBuffer: game.roundTurnScoresBuffer,
+          seatWind
+        }, player.name);
+      }
+    });
+    await sleep(4000);
+    game.startRoundTurn();
+    this.broadcastGameUpdate(game, room);
+    await this.enterBotDrawLoop(game, room);
+  }
+
+  async sendToPlayersEndGame(game, room) {
+    game.getPlayersData().forEach((player, seatWind) => {
+      if (!player.isBot) {
+        this.sendToOne(messageTypes.PUSH_END_GAME, {
+          roomname: room.roomname,
+          // TODO: More on this later
+          roundTurnScoresBuffer: game.roundTurnScoresBuffer,
+          prevPlayerScores: game.getPlayersData().map(p => p.score),
+          seatWind
+        }, player.name);
+      }
+    });
+  }
+
+  async shouldStopPlaying(game, room) {
+    let flag = true;
+    if (game.shouldEndGame()) {
+      // Send message PUSH_END_GAME
+      await sleep(4000);
+      await this.sendToPlayersEndGame(game, room);
+    } else if (game.shouldEndRoundTurn()) {
+      // Send message PUSH_CONTINUE_GAME
+      await sleep(4000);
+      await this.sendToPlayersContinueGame(game, room);
+    } else {
+      flag = false;
+    }
+    return flag;
+  }
+
 
   // Common message helper functions
   getOnlineRoomsMessage() {

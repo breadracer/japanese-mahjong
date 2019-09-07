@@ -59,11 +59,11 @@ function Yakuman(type, multiplier) {
   this.multiplier = multiplier;
 }
 
-function WinResult(seatWind, triggerSeatWind, parsedTileGroups,
-  yakus, yakumans, han, fu, pointValue) {
+function WinResult(seatWind, triggerSeatWind, paoSeatWind, 
+  parsedTileGroups, yakus, yakumans, han, fu, pointValue) {
   this.seatWind = seatWind;
   this.triggerSeatWind = triggerSeatWind;
-
+  this.paoSeatWind = paoSeatWind;
   this.parsedTileGroups = parsedTileGroups; // Array of Groups
   this.yakus = yakus; // Array of Yakus
   this.yakumans = yakumans; // Array of Yakumans
@@ -119,8 +119,11 @@ class Game {
     this.callOptionWaitlist = [...Array(3).keys()].map(() =>
       [...Array(maxPlayers).keys()].map(() => []));
 
+    // Array of WinResults
     this.winResultsBuffer = Array(maxPlayers);
 
+    // Array of numbers (score change)
+    this.roundTurnScoresBuffer = Array(maxPlayers).fill(0);
   }
 
 
@@ -139,49 +142,49 @@ class Game {
           this.discard(seatWind, data.tile);
           break;
         }
-  
+
         case actionTypes.ACTION_KAN_CLOSED: {
           this.kanClosed(seatWind, data.acceptedCandidate);
           break;
         }
-  
+
         case actionTypes.ACTION_KAN_OPEN_DRAW: {
           this.kanOpenDraw(seatWind, data.acceptedCandidateInfo);
           break;
         }
-  
+
         case actionTypes.ACTION_RIICHI: {
           break;
         }
-  
+
         case actionTypes.ACTION_TSUMO: {
           break;
         }
-  
+
         case actionTypes.ACTION_CHII: {
           this.chii(seatWind, data.acceptedCandidate, data.triggerTile);
           break;
         }
-  
+
         case actionTypes.ACTION_PON: {
           this.pon(seatWind, data.acceptedCandidate, data.triggerTile);
           break;
         }
-  
+
         case actionTypes.ACTION_KAN_OPEN_CALL: {
           this.kanOpenCall(seatWind, data.acceptedCandidate, data.triggerTile);
           break;
         }
-  
+
         case actionTypes.ACTION_RON_DISCARD: {
           this.ronDiscard(seatWind, data.winResult, numLeftAction);
           break;
         }
-  
+
         case actionTypes.ACTION_RON_KAN_OPEN_DRAW: {
           break;
         }
-  
+
         case actionTypes.ACTION_RON_KAN_CLOSED: {
           break;
         }
@@ -431,6 +434,14 @@ class Game {
   ronDiscard(seatWind, winResult, numLeftRon) {
     this.winResultsBuffer[seatWind] = winResult;
     if (numLeftRon === 0) {
+      // Generate score changes in roundTurnScoresBuffer
+      this.winResultsBuffer.forEach((result, winSeatWind) => {
+        let pointValue = result.pointValue;
+        this.roundTurnScoresBuffer[winSeatWind] += pointValue;
+        this.roundTurnScoresBuffer[result.triggerSeatWind] -= pointValue;
+        // TODO: Add the case of presence of paoSeatWind in result (!= -1)
+        // TODO: Add the case of riichi
+      });
       this.endRoundTurn();
     }
   }
@@ -559,6 +570,9 @@ class Game {
       // data: candidateTiles: Array of arrays: [] (4 tiles),
       //       acceptedCandidate: Array of 4 tiles
       case actionTypes.OPTION_KAN_CLOSED: {
+        if (triggerTile === null) {
+          return null;
+        }
         // Find the 4 same tiles out of the sorted hand
         let drawnHand = [...hand, triggerTile].sort(tileCompare);
         let candidateTiles = [];
@@ -587,6 +601,9 @@ class Game {
       // data: candidateInfo: Array of: groupIndex: index, tile: tile
       //       acceptedCandidateInfo: groupIndex: index, tile: tile
       case actionTypes.OPTION_KAN_OPEN_DRAW: {
+        if (triggerTile === null) {
+          return null;
+        }
         let drawnHand = [...hand, triggerTile].sort(tileCompare);
         // Find all KOUTSU_OPEN forming tile type in player's tileGroups
         let indexedKoutsuTileTypes = tileGroups.map(group =>
@@ -610,11 +627,17 @@ class Game {
 
       // TODO: Design data format later
       case actionTypes.OPTION_RIICHI: {
+        if (triggerTile === null) {
+          return null;
+        }
         return null;
       }
 
       // TODO: Design data format later
       case actionTypes.OPTION_TSUMO: {
+        if (triggerTile === null) {
+          return null;
+        }
         return null;
       }
 
@@ -925,8 +948,11 @@ class Game {
 
     // Calculate point value
 
-    return new WinResult(seatWind, triggerSeatWind, tileGroups,
-      yakus, yakumans, han, fu, pointValue);
+    // Determine if there is paoSeatWind
+    let paoSeatWind = -1;
+
+    return new WinResult(seatWind, triggerSeatWind, paoSeatWind,
+      tileGroups, yakus, yakumans, han, fu, pointValue);
   }
 
 
@@ -1123,12 +1149,18 @@ class Game {
   // for the RON and TSUMO actions are triggered (bot or user)
   endRoundTurn() {
     this.roundData.nextRoundTurnFlag = true;
+    // Change the scores
+    this.playersData.forEach((player, seatWind) => {
+      player.score += this.roundTurnScoresBuffer[seatWind];
+    });
     // If this is the last turn of the last wind round, end the game
     if (this.globalData.roundWind === this.config.endRoundWind &&
       this.globalData.roundWindCounter === this.config.maxPlayers - 1) {
       this.globalData.endFlag = true;
+      this.changePhase(serverPhases.FINISHING_GAME);
+    } else {
+      this.changePhase(serverPhases.FINISHING_TURN);
     }
-    this.changePhase(serverPhases.FINISHING_TURN);
   }
 
   startRoundTurn() {
@@ -1142,7 +1174,7 @@ class Game {
     if (this.config.maxPlayers === 4) {
       // Reset the walls
       shuffledTiles = shuffle(fourPlayersTiles);
-      this.roundData.liveWall = shuffledTiles.slice(52, 122);
+      this.roundData.liveWall = shuffledTiles.slice(52, 62);
       // this.roundData.liveWall = [
       //   72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
       // ]
@@ -1192,6 +1224,7 @@ class Game {
     this.optionsBuffer = Array(this.config.maxPlayers).fill([]);
     this.syncCallOptionWaitlist();
     this.winResultsBuffer = Array(this.config.maxPlayers);
+    this.roundTurnScoresBuffer = Array(this.config.maxPlayers).fill(0);
     let turnCounter = this.roundData.turnCounter;
     let drawnTile = this.drawLiveWall(turnCounter);
     this.optionsBuffer[turnCounter] = this.generateDrawOptions(

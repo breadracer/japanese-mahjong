@@ -44,6 +44,9 @@ class Gameboard extends React.Component {
       // name, isBot, seatWind, hand (array), discardPile (array), score
       playersData: [],
 
+      // Round turn end data
+      roundTurnScoresBuffer: [],
+
       // Player self data
       seatWind: 0,
       options: [],
@@ -370,34 +373,36 @@ class Gameboard extends React.Component {
 
       // TODO: Display info about round turn status
       case messageTypes.PUSH_CONTINUE_GAME: {
-        let { roomname, game, seatWind } = message;
-        let playersData = game.playersData;
+        let { roomname, roundTurnScoresBuffer } = message;
         // For users in the target room
         if ((this.state.status === userStatus.IN_ROOM ||
           this.state.status === userStatus.IN_GAME) &&
           this.state.roomname === roomname) {
           this.setState({
+            roundTurnScoresBuffer,
             gameStatus: gameStatus.END_ROUND_TURN,
           });
         } else {
           console.log('Error: message delivered to the wrong destination');
         }
+        return;
       }
 
       // TODO: Display info about end game status and exit the game
       case messageTypes.PUSH_END_GAME: {
-        let { roomname, game, seatWind } = message;
-        let playersData = game.playersData;
+        let { roomname, roundTurnScoresBuffer } = message;
         // For users in the target room
         if ((this.state.status === userStatus.IN_ROOM ||
           this.state.status === userStatus.IN_GAME) &&
           this.state.roomname === roomname) {
           this.setState({
+            roundTurnScoresBuffer,
             gameStatus: gameStatus.END_GAME,
           });
         } else {
           console.log('Error: message delivered to the wrong destination');
         }
+        return;
       }
 
       default: {
@@ -484,6 +489,8 @@ class Gameboard extends React.Component {
           turnCounter={this.state.turnCounter}
           playersData={this.state.playersData}
           callTriggerTile={this.state.callTriggerTile}
+
+          roundTurnScoresBuffer={this.state.roundTurnScoresBuffer}
 
           seatWind={this.state.seatWind}
           options={this.state.options}
