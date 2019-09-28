@@ -178,90 +178,33 @@ class GameWorld {
 
       case messageTypes.PULL_UPDATE_GAME: {
         let room = this.getRoomByRoomname(message.roomname);
-        if (room && room.isInGame()) {
-          let game = room.game;
-          let action = message.action;
+        if (!room || !room.isInGame()) {
+          this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,
+            { isValid: false }, room.roomname);
+          return;
+        }
+        let game = room.game;
+        let action = message.action;
+        let players = game.getPlayersData();
+        if (game.optionTypeOf(action) === actionTypes.DRAW_ACTION) {
+          // First, transform the game, check if the round-turn/game has ended
+          game.transform([action]);
 
-          let players = game.getPlayersData();
-          if (game.optionTypeOf(action) === actionTypes.DRAW_ACTION) {
-            // First, transform the game, check if the round-turn/game has ended
-            game.transform([action]);
+          if (await this.shouldStopPlaying(game, room))
+            return;
 
-            if (await this.shouldStopPlaying(game, room))
-              return;
+          // If game not ended, push updated game and options to all users
+          if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
+            // Case 1: Draw action transformed, call options are generated
 
-            // If game not ended, push updated game and options to all users
-            if (game.getPhase() === serverPhases.WAITING_CALL_ACTION) {
-              // Case 1: Draw action transformed, call options are generated
-
-              // First, perform call actions for bots
-              players.forEach((player, seatWind) => {
-                if (player.isBot) {
-                  game.performBotCallAction(seatWind);
-                }
-              });
-
-              // Check if the bots' action can be transformed directly
-              let {
-                allRejected, transformables
-              } = game.scanTransformableCallActions();
-              if (allRejected) {
-                game.proceedToNextDraw();
-              } else {
-                game.transform(transformables);
+            // First, perform call actions for bots
+            players.forEach((player, seatWind) => {
+              if (player.isBot) {
+                game.performBotCallAction(seatWind);
               }
+            });
 
-              // Two cases:
-              // Case 1: Actions are already transformed previously and the
-              //         users will receive draw options
-              // Case 2: Actions are not transformed, users will receive other
-              //         call options
-              this.broadcastGameUpdate(game, room);
-
-              if (await this.shouldStopPlaying(game, room))
-                return;
-
-              // For case 1, enter the bot loop
-              if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-                // Bot draw loop
-                await this.enterBotDrawLoop(game, room);
-              }
-            } else if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
-              // Case 3: Draw action transformed, no call option, instead 
-              // next draw options are generated -> go to bot draw loop
-              this.broadcastGameUpdate(game, room);
-              // Bot draw loop
-              await this.enterBotDrawLoop(game, room);
-            }
-
-          } else if (game.optionTypeOf(action) === actionTypes.CALL_ACTION) {
-            // Case 2: Call action transformed, pending for other call actions
-            // Case 4: Call action transformed, next draw options are generated
-
-            // Update option status based on the incoming action (this 
-            // should also update the corresponding option status in 
-            // callOptionWaitlist since the references are shared)
-            if (action.type === actionTypes.ACTION_SKIP_CALL) {
-              // If ACTION_SKIP_CALL, reject all options for the target player's
-              // optionBuffer space
-              game.getOptionsBuffer()[action.seatWind].forEach(option => {
-                option.status = optionStatus.REJECTED;
-              });
-            } else {
-              // If not ACTION_SKIP_CALL, accept the target option and reject 
-              // other options for the target player's optionsBuffer space
-              game.getOptionsBuffer()[action.seatWind].forEach(option => {
-                if (game.optionToActionType(option.type) === action.type) {
-                  option.status = optionStatus.ACCEPTED;
-                  option.data = action.data;
-                } else {
-                  option.status = optionStatus.REJECTED;
-                }
-              });
-            }
-
-
-            // Check if the user's action can be transformed directly
+            // Check if the bots' action can be transformed directly
             let {
               allRejected, transformables
             } = game.scanTransformableCallActions();
@@ -276,8 +219,7 @@ class GameWorld {
             //         users will receive draw options
             // Case 2: Actions are not transformed, users will receive other
             //         call options
-            this.broadcastGameUpdate(game, room);
-
+            // NOTE: shouldStopPlaying will broadcast game update once first
             if (await this.shouldStopPlaying(game, room))
               return;
 
@@ -286,14 +228,68 @@ class GameWorld {
               // Bot draw loop
               await this.enterBotDrawLoop(game, room);
             }
+          } else if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+            // Case 3: Draw action transformed, no call option, instead 
+            // next draw options are generated -> go to bot draw loop
+            this.broadcastGameUpdate(game, room);
+            // Bot draw loop
+            await this.enterBotDrawLoop(game, room);
+          }
 
+        } else if (game.optionTypeOf(action) === actionTypes.CALL_ACTION) {
+          // Case 2: Call action transformed, pending for other call actions
+          // Case 4: Call action transformed, next draw options are generated
+
+          // Update option status based on the incoming action (this 
+          // should also update the corresponding option status in 
+          // callOptionWaitlist since the references are shared)
+          if (action.type === actionTypes.ACTION_SKIP_CALL) {
+            // If ACTION_SKIP_CALL, reject all options for the target player's
+            // optionBuffer space
+            game.getOptionsBuffer()[action.seatWind].forEach(option => {
+              option.status = optionStatus.REJECTED;
+            });
           } else {
-            console.error('Error: unknown action type');
+            // If not ACTION_SKIP_CALL, accept the target option and reject 
+            // other options for the target player's optionsBuffer space
+            game.getOptionsBuffer()[action.seatWind].forEach(option => {
+              if (game.optionToActionType(option.type) === action.type) {
+                option.status = optionStatus.ACCEPTED;
+                option.data = action.data;
+              } else {
+                option.status = optionStatus.REJECTED;
+              }
+            });
+          }
+
+
+          // Check if the user's action can be transformed directly
+          let {
+            allRejected, transformables
+          } = game.scanTransformableCallActions();
+          if (allRejected) {
+            game.proceedToNextDraw();
+          } else {
+            game.transform(transformables);
+          }
+
+          // Two cases:
+          // Case 1: Actions are already transformed previously and the
+          //         users will receive draw options
+          // Case 2: Actions are not transformed, users will receive other
+          //         call options
+          // NOTE: shouldStopPlaying will broadcast game update once first
+          if (await this.shouldStopPlaying(game, room))
+            return;
+
+          // For case 1, enter the bot loop
+          if (game.getPhase() === serverPhases.WAITING_DRAW_ACTION) {
+            // Bot draw loop
+            await this.enterBotDrawLoop(game, room);
           }
 
         } else {
-          this.sendToRoom(messageTypes.PUSH_UPDATE_GAME,
-            { isValid: false }, room.roomname);
+          console.error('Error: unknown action type');
         }
         return;
       }
@@ -367,7 +363,7 @@ class GameWorld {
       // Two cases:
       // Case 1: The users will receive draw options
       // Case 2: The users will receive other call options
-      this.broadcastGameUpdate(game, room);
+      // NOTE: shouldStopPlaying will broadcast game update once first
       if (await this.shouldStopPlaying(game, room))
         return;
 
@@ -413,31 +409,38 @@ class GameWorld {
   async sendToPlayersEndGame(game, room) {
     game.getPlayersData().forEach((player, seatWind) => {
       if (!player.isBot) {
-        this.sendToOne(messageTypes.PUSH_END_GAME, {
+        this.sendToOne(messageTypes.PUSH_CONTINUE_GAME, {
           roomname: room.roomname,
           // TODO: More on this later
           roundTurnScoresBuffer: game.roundTurnScoresBuffer,
-          prevPlayerScores: game.getPlayersData().map(p => p.score),
           seatWind
         }, player.name);
       }
     });
+    await sleep(4000);
+    room.endGame();
+    // Notify the world the target room is in game
+    this.sendToAll(messageTypes.PUSH_END_GAME, {
+      updatedRoom: { roomname: room.roomname }
+    });
   }
 
+  // First, broadcast game update. Then check for ending conditions
   async shouldStopPlaying(game, room) {
-    let flag = true;
+    this.broadcastGameUpdate(game, room);
+    if (!game.shouldEndRoundTurn()) {
+      return false;
+    }
     if (game.shouldEndGame()) {
       // Send message PUSH_END_GAME
       await sleep(4000);
       await this.sendToPlayersEndGame(game, room);
-    } else if (game.shouldEndRoundTurn()) {
-      // Send message PUSH_CONTINUE_GAME
-      await sleep(4000);
-      await this.sendToPlayersContinueGame(game, room);
-    } else {
-      flag = false;
+      return true;
     }
-    return flag;
+    // Send message PUSH_CONTINUE_GAME
+    await sleep(4000);
+    await this.sendToPlayersContinueGame(game, room);
+    return true;
   }
 
 

@@ -390,18 +390,38 @@ class Gameboard extends React.Component {
 
       // TODO: Display info about end game status and exit the game
       case messageTypes.PUSH_END_GAME: {
-        let { roomname, roundTurnScoresBuffer } = message;
-        // For users in the target room
-        if ((this.state.status === userStatus.IN_ROOM ||
-          this.state.status === userStatus.IN_GAME) &&
-          this.state.roomname === roomname) {
-          this.setState({
-            roundTurnScoresBuffer,
-            gameStatus: gameStatus.END_GAME,
-          });
-        } else {
-          console.log('Error: message delivered to the wrong destination');
-        }
+        // let { roomname, roundTurnScoresBuffer } = message;
+        // // For users in the target room
+        // if ((this.state.status === userStatus.IN_ROOM ||
+        //   this.state.status === userStatus.IN_GAME) &&
+        //   this.state.roomname === roomname) {
+        //   this.setState({
+        //     roundTurnScoresBuffer,
+        //     gameStatus: gameStatus.END_GAME,
+        //   });
+        // } else {
+        //   console.log('Error: message delivered to the wrong destination');
+        // }
+        // return;
+        let { roomname } = message.updatedRoom;
+        this.setState(prevState => {
+          let prevRooms = [...prevState.onlineRooms];
+          let room = prevRooms.find(r => r.roomname === roomname);
+          if (!room) {
+            console.log('Error: room does not exist');
+            return {};
+          }
+          room.isInGame = false;
+          // For users outside the room
+          if (this.state.roomname !== roomname) {
+            return { onlineRooms: [...prevRooms] };
+          }
+          // For users inside the room
+          return {
+            onlineRooms: [...prevRooms],
+            status: userStatus.IN_ROOM
+          };
+        });
         return;
       }
 

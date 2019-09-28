@@ -66,18 +66,25 @@ class Room {
 
   // Return the option generated for the 1st player
   startGame() {
-    if (this.isFull() && !this.isInGame()) {
-      this.game = new Game({
-        maxPlayers: this.maxPlayers,
-        endRoundWind: winds.SOUTH, // TODO: More on this later
-        usernames: [...this.usernames],
-        botnames: [...this.botnames],
-      });
-      this.game.init();
-      return true;
-    } else {
+    if (!this.isFull() || this.isInGame()) {
       return false;
     }
+    this.game = new Game({
+      maxPlayers: this.maxPlayers,
+      endRoundWind: winds.SOUTH, // TODO: More on this later
+      usernames: [...this.usernames],
+      botnames: [...this.botnames],
+    });
+    this.game.init();
+    return true;
+  }
+
+  endGame() {
+    if (!this.isInGame()) {
+      return false;
+    }
+    this.game = null;
+    return true;
   }
 }
 

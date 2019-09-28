@@ -1171,10 +1171,10 @@ class Game {
 
     let shuffledTiles;
     // This is compatible only to 4p now
-    if (this.config.maxPlayers === 4) {
+    if (this.config.maxPlayers === 4) { 
       // Reset the walls
       shuffledTiles = shuffle(fourPlayersTiles);
-      this.roundData.liveWall = shuffledTiles.slice(52, 62);
+      this.roundData.liveWall = shuffledTiles.slice(52, 55);
       // this.roundData.liveWall = [
       //   72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
       // ]
