@@ -938,7 +938,7 @@ class Game {
 
   // Score computations for given tile groups
   calculateWinResult(tileGroups, seatWind, triggerSeatWind) {
-    let han = 0, fu = 0, pointValue = 0, yakus = [], yakumans = [];
+    let han = 0, fu = 0, pointValue = 1000, yakus = [], yakumans = [];
 
     // Calculate Han from Yakus (or Yakumans)
 
@@ -1174,7 +1174,7 @@ class Game {
     if (this.config.maxPlayers === 4) { 
       // Reset the walls
       shuffledTiles = shuffle(fourPlayersTiles);
-      this.roundData.liveWall = shuffledTiles.slice(52, 55);
+      this.roundData.liveWall = shuffledTiles.slice(52, 122);
       // this.roundData.liveWall = [
       //   72, 72, 72, 72, 72, 72, 76, 76, 76, 76, 76, 80, 80, 80, 80, 80
       // ]

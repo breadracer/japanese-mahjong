@@ -57,6 +57,7 @@ export default class Register extends React.Component {
     return (
       <div>
         {redirect}
+        <h1>Register</h1>
         <form>
           <input type='text' placeholder='username'
             onChange={this.onChange} name='username'

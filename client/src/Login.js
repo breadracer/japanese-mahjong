@@ -60,6 +60,7 @@ export default class Login extends React.Component {
     return (
       <div>
         {redirect}
+        <h1>Login</h1>
         <form>
           <input type='text' placeholder='username'
             onChange={this.onChange} name='username'

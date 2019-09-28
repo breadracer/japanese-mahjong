@@ -72,7 +72,8 @@ class RoomList extends React.Component {
 
     return (
       <div>
-        <h1>Welcome to the roomlist page, {this.props.loggedUser}.</h1>
+        <h1>Hi, {this.props.loggedUser}!</h1>
+        <h4>Create or join a gaming room to play</h4>
         <div>
           <button onClick={this.props.handleLogout}>Log out</button>
           {/* <button onClick={this.handleTestSpeed}>Get ws time</button> */}

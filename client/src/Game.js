@@ -163,7 +163,7 @@ class Game extends React.Component {
         return (
           <div style={{ margin: '50px' }}>
             <div>
-              <h1>Welcome to the game page, {this.props.loggedUser}.</h1>
+              <h1>Playing as {this.props.loggedUser}.</h1>
               <div style={{ display: 'flex' }}>
                 <div>
                   <h5>liveWall:</h5>
@@ -181,10 +181,10 @@ class Game extends React.Component {
         )
       }
       case gameStatus.END_ROUND_TURN: {
-        let prevPlayerScores = this.props.playersData.map(
+        let newPlayerScores = this.props.playersData.map(
           player => player.score);
-        let newPlayerScores = prevPlayerScores.map((prevScore, seatWind) =>
-          prevScore + this.props.roundTurnScoresBuffer[seatWind]);
+        let prevPlayerScores = newPlayerScores.map((newScore, seatWind) =>
+          newScore - this.props.roundTurnScoresBuffer[seatWind]);
 
         let scoreList = this.props.roundTurnScoresBuffer.map((scoreChange, i) =>
           <div key={i}>

@@ -90,7 +90,7 @@ class Room extends React.Component {
 
     return (
       <div>
-        <h1>Welcome to the room page, {this.props.loggedUser}.</h1>
+        <h1>You are inside the room, {this.props.loggedUser}.</h1>
         <div>
           <button onClick={this.props.handleLogout}>Log out</button>
         </div>
