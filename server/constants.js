@@ -103,7 +103,7 @@ module.exports.redDoraTileValues = {
   // Tile numbers
   RED_MAN_5_1: 16, RED_PIN_5_1: 52,
   RED_PIN_5_2: 53, RED_SOU_5_1: 88
-}
+};
 
 module.exports.tileGroupTypes = {
   // Formed in player's tile groups

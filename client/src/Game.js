@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  actionTypes, messageTypes,
-  optionStatus, gameStatus
+  actionTypes, messageTypes, optionStatus,
+  gameStatus, tileTypes, redDoraTileValues
 } from './constants';
 
 class Game extends React.Component {
@@ -55,7 +55,7 @@ class Game extends React.Component {
         if (discardOptionList === null && nonDiscardOptions.length !== 0) {
           nonDiscardOptions.push(null);
         }
-        let nonDiscardOptionList = <div><ul>
+        let nonDiscardOptionList = <div><ul style={{ listStyleType: 'none' }}>
           {nonDiscardOptions.map((option, i) => {
             let callTriggerTile = this.props.callTriggerTile;
             // For the pre-allocated skip button
@@ -143,15 +143,15 @@ class Game extends React.Component {
               <h5>{player.name}'s data:</h5>
               <p>Score: {player.score}</p>
               <p>Seatwind: {player.seatWind}</p>
-              <p>Hand: {tilesToStringHand(player.hand)}</p>
-              <p>Drawn tile: {player.drawnTile !== null ?
-                tilesToStringWall([player.drawnTile]) : null}</p>
-              <p>Discard pile: {tilesToStringWall(player.discardPile)}</p>
+              {tilesToImageLarge(player.hand)}
+              {player.drawnTile !== null ?
+                tilesToImageLarge([player.drawnTile]) : null}
+              {tilesToImageSmall(player.discardPile)}
               <div>
                 <p>Tile groups: </p>
-                <ul>{
+                <ul style={{ listStyleType: 'none' }}>{
                   player.tileGroups.map((group, j) =>
-                    <li key={j}>{tilesToStringWall(group.tiles)}</li>)
+                    <li key={j}>{tilesToImageSmall(group.tiles)}</li>)
                 }</ul>
               </div>
               {this.props.seatWind === i ? nonDiscardOptionList : null}
@@ -167,11 +167,11 @@ class Game extends React.Component {
               <div style={{ display: 'flex' }}>
                 <div>
                   <h5>liveWall:</h5>
-                  <p>{tilesToStringWall(this.props.liveWall)}</p>
+                  {tilesToImageSmall(this.props.liveWall)}
                 </div>
                 <div>
                   <h5>deadWall:</h5>
-                  <p>{tilesToStringWall(this.props.deadWall)}</p>
+                  {tilesToImageSmall(this.props.deadWall)}
                 </div>
               </div>
             </div>
@@ -240,6 +240,28 @@ function tilesToStringHand(tiles) {
     }
   });
   return tilesStrings.join('');
+}
+
+function tilesToImageLarge(tiles) {
+  return <div>
+    {tiles.map(tile => <img src={`large/${tileTypeOf(tile)}.png`} />)}
+  </div>;
+}
+
+function tilesToImageSmall(tiles) {
+  return <div>
+    {tiles.map(tile => <img src={`small/${tileTypeOf(tile)}.png`} />)}
+  </div>;
+}
+
+// Tile type computation
+function tileTypeOf(tile) {
+  if (Object.values(redDoraTileValues).includes(tile)) {
+    return tile === redDoraTileValues.RED_MAN_5_1 ?
+      tileTypes.RED_MAN_5 : tile === redDoraTileValues.RED_SOU_5_1 ?
+        tileTypes.RED_SOU_5 : tileTypes.RED_PIN_5;
+  }
+  return Math.floor(tile / 4);
 }
 
 // Convert option type to corresponding action type

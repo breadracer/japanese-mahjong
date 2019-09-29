@@ -269,7 +269,8 @@ class Game {
     player.hand = player.hand.filter(tile =>
       !acceptedCandidate.includes(tile));
     // TODO: Set the player's forbiddenTiles data
-
+    // Remove the trigger tile from trigger player's discard pile
+    this.playersData[this.roundData.turnCounter].discardPile.pop();
     // Set the turnCounter to the calling player's seatWind
     this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
@@ -291,7 +292,8 @@ class Game {
     player.hand = player.hand.filter(tile =>
       !acceptedCandidate.includes(tile));
     // TODO: Set the player's forbiddenTiles data
-
+    // Remove the trigger tile from trigger player's discard pile
+    this.playersData[this.roundData.turnCounter].discardPile.pop();
     // Set the turnCounter to the calling player's seatWind
     this.roundData.callTriggerTile = null;
     this.roundData.turnCounter = seatWind;
@@ -312,7 +314,8 @@ class Game {
     ));
     player.hand = player.hand.filter(tile =>
       !acceptedCandidate.includes(tile));
-
+    // Remove the trigger tile from trigger player's discard pile
+    this.playersData[this.roundData.turnCounter].discardPile.pop();
     // Set the player's kanFlag to true
     player.kanFlag = true;
     // Set the turnCounter to the calling player's seatWind

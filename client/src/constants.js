@@ -88,6 +88,13 @@ export const tileTypes = {
   RED_MAN_5: 36, RED_PIN_5: 37, RED_SOU_5: 38
 };
 
+export const redDoraTileValues = {
+  // NOTE: tile 16, 52, 53, 88 are red-doras
+  // Tile numbers
+  RED_MAN_5_1: 16, RED_PIN_5_1: 52,
+  RED_PIN_5_2: 53, RED_SOU_5_1: 88
+};
+
 export const messageTypes = {
   // Pull message types
   PULL_ALL_ROOMS: 'PULL_ALL_ROOMS',
