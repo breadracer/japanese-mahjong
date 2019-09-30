@@ -4,6 +4,7 @@ import {
   gameStatus, tileTypes, redDoraTileValues
 } from './constants';
 
+// NOTE: This is designed for 4-player only
 class Game extends React.Component {
   // props:
   constructor(props) {
@@ -137,32 +138,137 @@ class Game extends React.Component {
           }).filter(option => option)}
         </ul></div>
 
-        let playersList = <div style={{ display: 'flex' }}>
-          {this.props.playersData.map((player, i) => (
-            <div key={i} style={{ flex: 1 }}>
-              <h5>{player.name}'s data:</h5>
-              <p>Score: {player.score}</p>
-              <p>Seatwind: {player.seatWind}</p>
-              {tilesToImageLarge(player.hand)}
-              {player.drawnTile !== null ?
-                tilesToImageLarge([player.drawnTile]) : null}
-              {tilesToImageSmall(player.discardPile)}
-              <div>
-                <p>Tile groups: </p>
-                <ul style={{ listStyleType: 'none' }}>{
-                  player.tileGroups.map((group, j) =>
-                    <li key={j}>{tilesToImageSmall(group.tiles)}</li>)
-                }</ul>
-              </div>
-              {this.props.seatWind === i ? nonDiscardOptionList : null}
-              {this.props.seatWind === i ? discardOptionList : null}
+        let getPlayerProfile = player => <div style={{ height: '235px' }}>
+          <h5 style={{ textAlign: 'center' }}>{player.name}</h5>
+          <div style={{
+            display: 'flex', justifyContent: 'space-around'
+          }}><div>
+              {tilesBackSmall(player.drawnTile !== null ?
+                [...player.hand, player.drawnTile] : player.hand)}
             </div>
-          ))}
+            <div style={{
+              display: 'flex', flex: 1, justifyContent: 'center'
+            }}>
+              {player.tileGroups.map((group, j) =>
+                <div key={j}>{tilesToImageSmall(group.tiles)}</div>)}
+            </div>
+          </div>
+          <div style={{
+            display: 'flex',
+            flexFlow: 'column',
+            alignItems: 'center'
+          }}>
+            <p style={{ textAlign: 'center' }}>Discard pile:</p>
+            {tilesToImageSmall(player.discardPile)}
+          </div>
+        </div>;
+
+        let getSelfProfile = player => <div>
+          <div style={{
+            display: 'flex', justifyContent: 'space-around'
+          }}>
+            <div>
+              {tilesToImageLarge(player.drawnTile !== null ?
+                [...player.hand, player.drawnTile] : player.hand)}
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'center'
+            }}>
+              {player.tileGroups.map((group, j) =>
+                <div key={j}>{tilesToImageLarge(group.tiles)}</div>)}
+            </div>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexFlow: 'column'
+          }}>
+            <p>Discard pile:</p>
+            {tilesToImageSmall(player.discardPile)}
+            <div>
+              {nonDiscardOptionList}
+              {discardOptionList}
+            </div>
+          </div>
+        </div>;
+
+        let playersList = <div style={{ display: 'flex', flexFlow: 'column' }}>
+          <div style={{ display: 'flex', flex: 1 }}>
+            <div style={{ flex: 1 }}>
+              <h1>Playing as {this.props.loggedUser}</h1>
+              <h4>Dora indicators:</h4>
+              {this.props.deadWall.slice(4 + this.props.kanCounter,
+                9 + this.props.kanCounter).map((tile, i) =>
+                  i <= this.props.kanCounter ?
+                    <img key={i} src={`small/${tileTypeOf(tile)}.png`} /> :
+                    <img key={i} src={`small/back.png`} />)}
+            </div>
+            <div style={{ flex: 1 }}>
+              {getPlayerProfile(this.props.playersData[
+                (this.props.seatWind + 2) % 4])}
+            </div>
+            <div style={{ flex: 1 }}></div>
+          </div>
+          <div style={{ display: 'flex', flex: 1 }}>
+            <div style={{ flex: 1 }}>
+              {getPlayerProfile(this.props.playersData[
+                (this.props.seatWind + 3) % 4])}
+            </div>
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexFlow: 'column',
+              borderStyle: 'solid',
+              textAlign: 'center'
+            }}>
+              <div style={{ flex: 1, display: 'flex' }}>
+                <div style={{ flex: 1 }}></div>
+                <div style={{ flex: 1 }}>
+                  <p>Score: {this.props.playersData[
+                    (this.props.seatWind + 2) % 4].score}</p>
+                  <p>Seatwind: {(this.props.seatWind + 2) % 4}</p>
+                </div>
+                <div style={{ flex: 1 }}></div>
+              </div>
+              <div style={{ flex: 1, display: 'flex' }}>
+                <div style={{ flex: 1 }}>
+                  <p>Score: {this.props.playersData[
+                    (this.props.seatWind + 3) % 4].score}</p>
+                  <p>Seatwind: {(this.props.seatWind + 3) % 4}</p>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h5>Round wind: {`${this.props.roundWind}-${
+                    this.props.roundWindCounter}`}</h5>
+                  <h5>Left tiles: {this.props.liveWall.length}</h5>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p>Score: {this.props.playersData[
+                    (this.props.seatWind + 1) % 4].score}</p>
+                  <p>Seatwind: {(this.props.seatWind + 1) % 4}</p>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: 'flex' }}>
+                <div style={{ flex: 1 }}></div>
+                <div style={{ flex: 1 }}>
+                  <p>Score: {this.props.playersData[this.props.seatWind].score}</p>
+                  <p>Seatwind: {this.props.seatWind}</p>
+                </div>
+                <div style={{ flex: 1 }}></div>
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              {getPlayerProfile(this.props.playersData[
+                (this.props.seatWind + 1) % 4])}
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            {getSelfProfile(this.props.playersData[this.props.seatWind])}
+          </div>
         </div>
 
         return (
-          <div style={{ margin: '50px' }}>
-            <div>
+          <div style={{ margin: '10px' }}>
+            {/* <div>
               <h1>Playing as {this.props.loggedUser}.</h1>
               <div style={{ display: 'flex' }}>
                 <div>
@@ -175,7 +281,7 @@ class Game extends React.Component {
                 </div>
               </div>
             </div>
-            <hr />
+            <hr /> */}
             {playersList}
           </div>
         )
@@ -195,8 +301,9 @@ class Game extends React.Component {
           </div>
         );
         return (
-          <div style={{ margin: '50px' }}>
-            <h1>Welcome to the game page, {this.props.loggedUser}.</h1>
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center'
+          }}>
             <div style={{ display: 'flex' }}>
               {scoreList}
             </div>
@@ -242,15 +349,23 @@ function tilesToStringHand(tiles) {
   return tilesStrings.join('');
 }
 
+function tilesBackSmall(tiles) {
+  return <div>
+    {tiles.map((tile, i) => <img key={i} src={'small/back.png'} />)}
+  </div>
+}
+
 function tilesToImageLarge(tiles) {
   return <div>
-    {tiles.map(tile => <img src={`large/${tileTypeOf(tile)}.png`} />)}
+    {tiles.map((tile, i) =>
+      <img key={i} src={`large/${tileTypeOf(tile)}.png`} />)}
   </div>;
 }
 
 function tilesToImageSmall(tiles) {
   return <div>
-    {tiles.map(tile => <img src={`small/${tileTypeOf(tile)}.png`} />)}
+    {tiles.map((tile, i) =>
+      <img key={i} src={`small/${tileTypeOf(tile)}.png`} />)}
   </div>;
 }
 

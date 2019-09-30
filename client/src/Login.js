@@ -58,7 +58,14 @@ export default class Login extends React.Component {
     const errorMessage = this.state.errorMessage ?
       <h5>{this.state.errorMessage}</h5> : null;
     return (
-      <div>
+      <div style={{
+        display: 'flex',
+        flexFlow: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        margin: '10% 20%'
+      }}>
         {redirect}
         <h1>Login</h1>
         <form>

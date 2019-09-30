@@ -70,8 +70,10 @@ class Room extends React.Component {
           : null
       }</li>);
 
-    const startButton = this.props.loggedUser === this.props.owner ?
-      <button onClick={this.handleStartGame}>Start game</button> : null;
+    const startButton = this.props.loggedUser !== this.props.owner ? null :
+      this.props.inRoomUsers.length + this.props.inRoomBots.length !==
+        this.props.maxPlayers ? null : <button
+          onClick={this.handleStartGame}> Start game</button>;
 
     let botTypeList = Object.entries(botTypes);
 
@@ -89,23 +91,22 @@ class Room extends React.Component {
       </form> : null;
 
     return (
-      <div>
-        <h1>You are inside the room, {this.props.loggedUser}.</h1>
-        <div>
-          <button onClick={this.props.handleLogout}>Log out</button>
-        </div>
-        <div>
-          <div>
-            <h4>Room: {this.props.roomname}</h4>
-            {startButton}
-            <button onClick={this.handleExitRoom}>Exit room</button>
+      <div style={{ margin: '10% 20%' }}>
+        <h1>You are inside the room, {this.props.loggedUser}. <button
+          onClick={this.props.handleLogout}>Log out</button></h1>
+        <h4>Room: {this.props.roomname} <button
+          onClick={this.handleExitRoom}>Exit room</button>
+          {startButton}</h4>
+        <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+          <div style={{ width: '50%' }}>
+            {botFormInputs}
           </div>
-          {botFormInputs}
-          <div>
+          <div style={{ width: '50%' }}>
             <h4>Current players: ({
               this.props.inRoomUsers.length + this.props.inRoomBots.length
             }/{this.props.maxPlayers})</h4>
-            <ul>{[...userList, ...botList]}</ul>
+            <ul style={{ listStyleType: 'none' }}>
+              {[...userList, ...botList]}</ul>
           </div>
         </div>
       </div>

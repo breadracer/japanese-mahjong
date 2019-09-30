@@ -52,7 +52,7 @@ class RoomList extends React.Component {
 
   render() {
     console.log('RoomList rendered');
-    
+
     const roomList = this.props.onlineRooms.map((r, i) =>
       <li key={i}>
         <span>
@@ -71,33 +71,32 @@ class RoomList extends React.Component {
     }</li>);
 
     return (
-      <div>
-        <h1>Hi, {this.props.loggedUser}!</h1>
+      <div style={{ margin: '10% 20%' }}>
+        <h1>Hi, {this.props.loggedUser}! <button
+          onClick={this.props.handleLogout}>Log out</button></h1>
         <h4>Create or join a gaming room to play</h4>
-        <div>
-          <button onClick={this.props.handleLogout}>Log out</button>
-          {/* <button onClick={this.handleTestSpeed}>Get ws time</button> */}
-        </div>
-        <div>
-          <h4>Current rooms</h4>
-          <ul>{roomList}</ul>
-          <form>
-            <input type='text' placeholder='roomname' name='newRoomname'
-              onChange={this.onChangeText} value={this.state.newRoomname} />
-            <input type='radio' id='4p' name='newMaxPlayers'
-              value='4' checked={this.state.newMaxPlayers === 4}
-              onChange={this.onChangeRadio} />
-            <label htmlFor='4p'>4 players</label>
-            <input type='radio' id='3p' name='newMaxPlayers'
-              value='3' checked={this.state.newMaxPlayers === 3}
-              onChange={this.onChangeRadio} />
-            <label htmlFor='3p'>3 players</label>
-            <button onClick={this.handleCreateRoom}>Create a new room!</button>
-          </form>
-        </div>
-        <div>
-          <h4>Online users</h4>
-          <ul>{userList}</ul>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div>
+            <h4>Current rooms</h4>
+            <ul style={{ listStyleType: 'none' }}>{roomList}</ul>
+            <form>
+              <input type='text' placeholder='roomname' name='newRoomname'
+                onChange={this.onChangeText} value={this.state.newRoomname} />
+              <input type='radio' id='4p' name='newMaxPlayers'
+                value='4' checked={this.state.newMaxPlayers === 4}
+                onChange={this.onChangeRadio} />
+              <label htmlFor='4p'>4 players</label>
+              <input type='radio' id='3p' name='newMaxPlayers'
+                value='3' checked={this.state.newMaxPlayers === 3}
+                onChange={this.onChangeRadio} />
+              <label htmlFor='3p'>3 players</label>
+              <button onClick={this.handleCreateRoom}>Create a new room!</button>
+            </form>
+          </div>
+          <div>
+            <h4>Online users</h4>
+            <ul style={{ listStyleType: 'none' }}>{userList}</ul>
+          </div>
         </div>
       </div>
 

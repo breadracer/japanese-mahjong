@@ -7,12 +7,19 @@ export default props => {
 
   const title = props.connected ?
     <h1>You are connected!</h1> :
-    <h1>Please try connect first!</h1>;
+    <h1>Welcome to breadracer's Japanese Mahjong!</h1>;
   const userWelcome = props.loggedUser ?
     <h3>Hi, {props.loggedUser}!</h3> :
-    <h3>You are not logged in</h3>;
+    <h3>Please log in or sign up first.</h3>;
   return (
-    <div>
+    <div style={{
+      display: 'flex',
+      flexFlow: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      textAlign: 'center',
+      margin: '10% 20%'
+    }}>
       <div>
         {title}
         {userWelcome}
