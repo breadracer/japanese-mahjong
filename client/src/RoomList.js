@@ -81,7 +81,7 @@ class RoomList extends React.Component {
             <ul style={{ listStyleType: 'none' }}>{roomList}</ul>
             <form>
               <input type='text' name='newRoomname'
-                placeholder='roomname, English or Chinese characters only'
+                placeholder='roomname, A-Za-z only'
                 onChange={this.onChangeText} value={this.state.newRoomname} />
               <input type='radio' id='4p' name='newMaxPlayers'
                 value='4' checked={this.state.newMaxPlayers === 4}
