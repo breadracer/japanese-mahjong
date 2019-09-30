@@ -59,7 +59,7 @@ class Gameboard extends React.Component {
 
   handleReceiveMessage = event => {
     let { type, message } = JSON.parse(event.data);
-    console.log('Received:', event.data);
+    // console.log('Received:', event.data);
     switch (type) {
       case messageTypes.PUSH_USER_CONNECT: {
         return this.setState(prevState => ({
@@ -436,7 +436,7 @@ class Gameboard extends React.Component {
 
   sendMessage = (type, message) => {
     let payload = JSON.stringify({ type, message });
-    console.log('Sent:', payload);
+    // console.log('Sent:', payload);
     this.props.socket.send(payload);
   }
 
