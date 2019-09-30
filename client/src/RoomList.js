@@ -80,7 +80,8 @@ class RoomList extends React.Component {
             <h4>Current rooms</h4>
             <ul style={{ listStyleType: 'none' }}>{roomList}</ul>
             <form>
-              <input type='text' placeholder='roomname' name='newRoomname'
+              <input type='text' name='newRoomname'
+                placeholder='roomname, English or Chinese characters only'
                 onChange={this.onChangeText} value={this.state.newRoomname} />
               <input type='radio' id='4p' name='newMaxPlayers'
                 value='4' checked={this.state.newMaxPlayers === 4}
@@ -88,7 +89,7 @@ class RoomList extends React.Component {
               <label htmlFor='4p'>4 players</label>
               <input type='radio' id='3p' name='newMaxPlayers'
                 value='3' checked={this.state.newMaxPlayers === 3}
-                onChange={this.onChangeRadio} />
+                onChange={this.onChangeRadio} disabled />
               <label htmlFor='3p'>3 players</label>
               <button onClick={this.handleCreateRoom}>Create a new room!</button>
             </form>
