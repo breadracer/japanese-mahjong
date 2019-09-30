@@ -192,6 +192,11 @@ class Game extends React.Component {
           </div>
         </div>;
 
+        let highLightStyle = seatWind => ({
+          fontWeight: this.props.turnCounter ===
+            seatWind ? 'bold' : 'normal'
+        });
+
         let playersList = <div style={{ display: 'flex', flexFlow: 'column' }}>
           <div style={{ display: 'flex', flex: 1 }}>
             <div style={{ flex: 1 }}>
@@ -224,17 +229,19 @@ class Game extends React.Component {
               <div style={{ flex: 1, display: 'flex' }}>
                 <div style={{ flex: 1 }}></div>
                 <div style={{ flex: 1 }}>
-                  <p>Score: {this.props.playersData[
+                  <p style={highLightStyle((this.props.seatWind + 2) % 4)}
+                  >Score: {this.props.playersData[
                     (this.props.seatWind + 2) % 4].score}</p>
-                  <p>Seatwind: {(this.props.seatWind + 2) % 4}</p>
+                  <p style={highLightStyle((this.props.seatWind + 2) % 4)}>Seatwind: {(this.props.seatWind + 2) % 4}</p>
                 </div>
                 <div style={{ flex: 1 }}></div>
               </div>
               <div style={{ flex: 1, display: 'flex' }}>
                 <div style={{ flex: 1 }}>
-                  <p>Score: {this.props.playersData[
+                  <p style={highLightStyle((this.props.seatWind + 3) % 4)}
+                  >Score: {this.props.playersData[
                     (this.props.seatWind + 3) % 4].score}</p>
-                  <p>Seatwind: {(this.props.seatWind + 3) % 4}</p>
+                  <p style={highLightStyle((this.props.seatWind + 3) % 4)}>Seatwind: {(this.props.seatWind + 3) % 4}</p>
                 </div>
                 <div style={{ flex: 1 }}>
                   <h5>Round wind: {`${this.props.roundWind}-${
@@ -242,16 +249,19 @@ class Game extends React.Component {
                   <h5>Left tiles: {this.props.liveWall.length}</h5>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p>Score: {this.props.playersData[
+                  <p style={highLightStyle((this.props.seatWind + 1) % 4)}>Score: {this.props.playersData[
                     (this.props.seatWind + 1) % 4].score}</p>
-                  <p>Seatwind: {(this.props.seatWind + 1) % 4}</p>
+                  <p style={highLightStyle((this.props.seatWind + 1) % 4)}>Seatwind: {(this.props.seatWind + 1) % 4}</p>
                 </div>
               </div>
               <div style={{ flex: 1, display: 'flex' }}>
                 <div style={{ flex: 1 }}></div>
                 <div style={{ flex: 1 }}>
-                  <p>Score: {this.props.playersData[this.props.seatWind].score}</p>
-                  <p>Seatwind: {this.props.seatWind}</p>
+                  <p style={highLightStyle(this.props.seatWind)}
+                  >Score: {this.props.playersData[this.props.seatWind].score}
+                  </p>
+                  <p style={highLightStyle(this.props.seatWind)}
+                  >Seatwind: {this.props.seatWind}</p>
                 </div>
                 <div style={{ flex: 1 }}></div>
               </div>
