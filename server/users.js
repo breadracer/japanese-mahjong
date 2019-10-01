@@ -1,5 +1,5 @@
 // TODO: Record more data later
-// Table schema: username, token
+// Table schema: username, token, register_time
 
 const { Pool } = require('pg');
 
@@ -49,6 +49,7 @@ module.exports.getUserToken = async username => {
 //   !users[username] ? null : field ? users[username] : users[username][field];
 
 module.exports.createUser = async (username, token) => {
-  let query = `INSERT INTO ${table} (username, token) VALUES ($1, $2)`;
-  await executeQuery(query, [username, token]);
+  let query = `INSERT INTO ${table} (username, token, \
+    register_time) VALUES ($1, $2, $3)`;
+  await executeQuery(query, [username, token, new Date()]);
 };
