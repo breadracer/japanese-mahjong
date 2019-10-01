@@ -35,13 +35,13 @@ module.exports.requestListener = function (req, res) {
         case '/api/register': {
           // Check if the user already exists
           // TODO: Store users in the database rather than in RAM
-          if (users.hasUser(requestBody.username)) {
+          if (await users.hasUser(requestBody.username)) {
             res.writeHead(400, 'Bad Request', headers);
             res.end(JSON.stringify({ message: 'User already registered' }));
           } else {
             // Store the hashed password
             let hash = await bcrypt.hash(requestBody.password, 10);
-            users.createUser(requestBody.username, hash);
+            await users.createUser(requestBody.username, hash);
             console.log(`Registered ${requestBody.username}`);
             res.writeHead(201, 'Created', headers);
             res.end(JSON.stringify({ message: 'Successfully signed up' }));
@@ -60,8 +60,8 @@ module.exports.requestListener = function (req, res) {
           }
 
           // Verify user information
-          if (users.hasUser(username) &&
-            await bcrypt.compare(password, users.getUserToken(username))) {
+          if (await users.hasUser(username) && await bcrypt.compare(
+            password, await users.getUserToken(username))) {
 
             // Generate jwt token
             let token = jwt.sign(

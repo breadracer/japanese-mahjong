@@ -5,7 +5,7 @@ const { constants, messageTypes } = require('./constants');
 const users = require('./users');
 const gameWorld = require('./gameWorld');
 
-module.exports.verifyClient = function (info, callback) {
+module.exports.verifyClient = async function (info, callback) {
   let { access_token, session_user } = url.parse(info.req.url, true).query;
   let flag = false;
 
@@ -16,7 +16,7 @@ module.exports.verifyClient = function (info, callback) {
     callback(false, 400, 'Bad Request');
 
     // Check if such user exists
-  } else if (!users.hasUser(session_user)) {
+  } else if (!(await users.hasUser(session_user))) {
     console.log(`Invalid username: ${session_user}, closing connection...`);
     callback(false, 400, 'Bad Request');
   } else {
